@@ -1,0 +1,4231 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Route Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+
+<!-- Leaflet JS -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Polyline Decorator -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+
+  
+<style>
+    body { margin:0; padding:0; }
+    #map { height: 100vh; width: 100vw; }
+
+#route-control {
+
+  position: absolute;
+
+  top: 15px;
+  left: 10px;
+  right: 10px;
+
+
+  z-index: 1000;
+
+  background: rgba(255,255,255,0.95);
+
+  padding: 6px 12px;
+
+  border-radius: 8px;
+
+  font-family: Arial;
+  font-size: 13px;
+
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+    #route-control b { margin-right: 8px; }
+    #route-control label { cursor: pointer; }
+#zoom-container{
+  margin-left:auto;
+}
+
+.hover-tooltip {
+  pointer-events: none;
+  z-index: 9999;
+}
+
+#agency-logos{
+  display:flex;
+  justify-content:center;   /* <-- centers horizontally */
+  align-items:center;
+  gap:10px;
+  width:100%;
+}
+
+#agency-logos img {
+  height: 28px;
+  width: auto;
+}
+
+#agency-logos .ltfrb-logo {
+  height: 1000px; /* LTFRB bigger in the middle */
+}
+
+
+#legend {
+  position: relative;
+  bottom: auto;
+  left: auto;
+  margin-top: 8px;
+
+  background: rgba(255,255,255,0.95);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-family: Arial;
+  font-size: 11px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+
+/* ===== UNIFIED PANEL TITLE (LEGEND + DISPLAY) ===== */
+.panel-title,
+.legend-title{
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+
+  border-bottom: 1px solid #ccc;
+  color: #222;
+}
+
+.legend-line{
+  display:inline-block;
+  width:22px;
+  height:4px;
+  margin-right:6px;
+  vertical-align:middle;
+}
+
+.legend-stop{
+  display:inline-block;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:black;
+  margin-right:6px;
+}
+
+.legend-endpoint{
+  display:inline-block;
+  width:10px;
+  height:10px;
+  background:black;
+  transform:rotate(45deg);
+  margin-right:6px;
+}
+
+.legend-rail{
+  display:inline-block;
+  width:22px;
+  height:4px;
+  background:#2f2f2f;
+  margin-right:6px;
+}
+
+
+.display-title{
+  font-size:16px;
+  font-weight:bold;
+  color:white;
+  background:#1e88e5;
+  padding:4px 12px;
+  border-radius:20px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  box-shadow:0 2px 4px rgba(0,0,0,.25);
+}
+
+.section-label{
+  font-weight:bold;
+  color:#555;
+}
+
+.divider{
+  width:1px;
+  height:24px;
+  background:#bbb;
+}
+
+.legend-control{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 2px 0;
+}
+
+/* ===== PUV ROUTE ELEMENTS: TWO COLUMNS ===== */
+
+.puv-elements-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  column-gap:18px;
+  row-gap:2px;
+}
+
+.puv-elements-grid .legend-control{
+  margin:0;
+}
+
+
+/* ===== TRACKER VERSION: HIDE PRESENTATION-ONLY DISCUSSION FILTER ===== */
+#openDiscussionPanel,
+#discussionPanel{
+  display:none !important;
+}
+
+/* ===== FILTER POPUP ===== */
+
+#discussionPanel{
+  display:none;
+
+  position:absolute;
+
+  left:calc(100% + 10px);
+  bottom:0;
+
+  width:280px;
+
+  background:rgba(255,255,255,0.97);
+
+  padding:12px;
+
+  border-radius:10px;
+
+  box-shadow:0 3px 10px rgba(0,0,0,0.25);
+
+  z-index:1100;
+}
+
+.filter-popup-title{
+  font-weight:bold;
+  font-size:13px;
+  margin-bottom:10px;
+}
+
+#discussionPanel select{
+  width:100%;
+  box-sizing:border-box;
+  padding:6px;
+  margin-top:4px;
+}
+
+#discussionPanel .particular-label{
+  display:block;
+  margin-top:10px;
+}
+
+#discussionPanel #particularSelect{
+  min-height:100px;
+}
+
+
+
+/* FIXED ICON SLOT (this is the key) */
+.legend-sample{
+  width: 28px;
+  height: 14px;
+  flex: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.legend-sample.line,
+.legend-sample.arrow,
+.legend-sample.stop,
+.legend-sample.endpoint,
+.legend-sample.rail{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+
+/* TEXT ALIGNMENT BASELINE FIX */
+.legend-control{
+  line-height: inherit;
+}
+
+/* FORCE PERFECT CENTERING */
+.legend-sample.endpoint,
+.legend-sample.stop,
+.legend-sample.arrow,
+.legend-sample.line{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+
+/* OD / DO line samples */
+.legend-sample.line{
+  height:3px;
+  border-radius:2px;
+}
+
+.legend-sample.line.od,
+.legend-sample.line.do{
+  position: relative;
+  background: #000;
+  height: 2px;
+
+  display: flex;
+  align-items: center;
+}
+
+/* RIGHT ARROW (OD) */
+.legend-sample.line.od::after{
+  content: ">";
+  position: absolute;
+  top: 50%;
+  right: 0px;
+  transform: translateY(-50%);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+/* LEFT ARROW (DO) */
+.legend-sample.line.do::after{
+  content: ">";
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  transform: translateY(-50%) rotate(180deg);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+
+/* arrow sample */
+.legend-sample.arrow::before{
+  content:">";
+  font-size:16px;
+  font-weight: 900; 
+  display:inline-block;
+}
+
+/* endpoint sample (diamond) */
+.legend-sample.endpoint{
+  width: 10px;
+  height: 10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: transparent;
+  transform: none; /* IMPORTANT: remove rotation from container */
+}
+
+.legend-sample.endpoint::before{
+  content:"";
+  width:10px;
+  height:10px;
+  background:#000;
+  transform: rotate(45deg);
+  display:block;
+}
+
+/* stop sample (circle) */
+.legend-sample.stop{
+  width: 28px;          /* SAME SLOT WIDTH as others */
+  height: 14px;         /* SAME SLOT HEIGHT */
+  flex: 0 0 28px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.legend-sample.stop::before{
+  content:"";
+  width:10px;
+  height:10px;
+  background:#000;
+  border-radius:50%;
+}
+
+
+/* rail sample */
+.legend-sample.rail {
+  position: relative;
+  width: 24px;
+  height: 6px;
+  display: inline-block;
+}
+
+/* base rail line */
+.legend-sample.rail::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #2f2f2f;
+  transform: translateY(-50%);
+}
+
+/* sleepers */
+.legend-sample.rail::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 10px;
+  transform: translateY(-50%);
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 6px,
+    #2f2f2f 6px,
+    #2f2f2f 7px,
+    transparent 7px,
+    transparent 12px
+  );
+}
+
+/* ===== SIDEBAR MAIN BOX ===== */
+#sidebar{
+  position:absolute;
+  top:15px;
+  left:10px;
+  z-index:1000;
+
+  width:350px;
+  background:rgba(255,255,255,0.96);
+  border-radius:10px;
+  padding:12px;
+
+  font-family:Arial;
+  box-shadow:0 2px 8px rgba(0,0,0,0.25);
+
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.panel-box{
+  background: rgba(255,255,255,0.96);
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+
+  font-family: Arial, sans-serif;
+}
+
+.panel-box + .panel-box{
+  margin-top: 2px;
+}
+
+
+/* ===== LEGEND NUMBER COLUMNS ===== */
+
+#sidebar .panel-box [id^="stat_"]{
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+
+
+/* ===== HEADER ===== */
+#sidebar-header{
+  text-align:center;
+}
+
+#sidebar-title{
+  font-family: "Montserrat", Arial, sans-serif;
+  font-size: 18px;              /* 🔥 BIGGER than legend */
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 1.8px;
+  line-height: 1.1;
+  margin-top: 10px;
+  text-transform: uppercase;
+  color: #1a1a1a;
+}
+
+
+/* ===== DISPLAY CONTROLS ===== */
+#display-controls{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  font-family: inherit;
+}
+
+/* TITLE */
+.display-box-title{
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+  color: #222;
+}
+
+/* SECTION HEADERS */
+.section-label{
+  font-weight:bold;
+  color:#444;
+  margin-top:6px;
+}
+
+/* ===== ICON ALIGNMENT ROW (THIS IS STEP 2) ===== */
+.control-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:2px 0;
+}
+
+.control-left{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.control-icon{
+  width:18px;
+  text-align:center;
+  font-size:14px;
+}
+
+.divider{
+  width:100%;
+  height:1px;
+  background:#ccc;
+  margin:6px 0;
+}
+
+#display-controls label{
+  cursor:pointer;
+}
+
+
+.other-transport-row{
+  display:grid;
+  /* Give Railway Station enough room so the Airport control starts clear of its label. */
+  grid-template-columns:minmax(122px,1.4fr) minmax(82px,1fr) minmax(78px,1fr);
+  column-gap:8px;
+  row-gap:4px;
+  align-items:center;
+  margin:3px 0 8px;
+}
+.other-transport-row .legend-control{
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  gap:4px;
+  min-width:0;
+  white-space:nowrap;
+  font-size:12px; /* match PUV Route Elements text */
+  padding:2px 0;
+}
+.other-transport-row .facility-control-icon{
+  width:19px;height:19px;min-width:19px;box-shadow:none;
+}
+.other-transport-row .facility-control-icon svg{width:13px;height:13px;}
+.other-transport-row input{margin:0;}
+.facility-control-icon{
+  width:24px;
+  height:24px;
+  min-width:24px;
+  border:1.5px solid #333;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 1px 3px #777;
+}
+.facility-control-icon svg{
+  width:16px;
+  height:16px;
+  display:block;
+}
+
+/* ICON ALIGNMENT ROW (DISPLAY CONTROL STYLE) */
+.panel-box label{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+}
+
+/* RIGHT SIDE ICON COLUMN */
+.check-icon{
+  margin-left:auto;
+  opacity:0.8;
+  min-width:24px;
+  text-align:right;
+}
+
+/* ICON STYLE MATCH LEGEND */
+.icon-stop{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:black;
+  display:inline-block;
+}
+
+.icon-endpoint{
+  width:10px;
+  height:10px;
+  background:black;
+  transform:rotate(45deg);
+  display:inline-block;
+}
+
+.icon-rail{
+  width:22px;
+  height:4px;
+  background:#2f2f2f;
+  display:inline-block;
+}
+
+/* ===== PANEL BOX (LEGEND + DISPLAY) ===== */
+.panel-box{
+  background: rgba(255,255,255,0.96);
+  padding: 12px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+
+  font-family: Arial, sans-serif;
+}
+
+
+/* SECTION HEADERS */
+.panel-section{
+  font-weight: 700;
+  font-size: 12px;
+  margin-top: 10px;
+  margin-bottom: 4px;
+  color: #444;
+}
+
+/* CHECKBOX ROW STYLE */
+.panel-box label{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-left: 6px;
+}
+
+/* ICONS ON RIGHT SIDE */
+.check-icon{
+  margin-left: auto;
+  opacity: 0.7;
+}
+
+/* ========================================= */
+/* SUMMARY PANEL LAYOUT                      */
+/* ========================================= */
+
+.summaryGrid{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+}
+
+.summaryLeft{
+  flex:0 0 48%;
+}
+
+.summaryRight{
+  flex:1;
+  min-width:0;
+}
+
+.summaryLeft .panel-box,
+.summaryRight .panel-box{
+  margin-bottom:12px;
+}
+
+
+  
+.admin-control-grid { display:grid; grid-template-columns:minmax(112px,1fr) 66px 42px; align-items:center; column-gap:5px; row-gap:3px; font-size:11px; margin:3px 0 8px; }
+.admin-control-heading { font-size:10px; font-weight:700; color:#555; text-align:center; }
+.admin-level { white-space:nowrap; font-size:12px; line-height:1.2; }
+.admin-toggle { display:flex; align-items:center; justify-content:center; gap:4px; min-height:19px; margin:0; }
+.admin-toggle input { margin:0; }
+.admin-line { display:inline-block; width:35px; border-top-style:dashed; }
+.region-line { border-top:5px dashed #B6FF00; }
+.province-line { border-top:4px dashed #FF00A8; }
+.city-line { border-top:3px dashed #00D9FF; }
+.barangay-line { border-top:2px dashed #FFD700; }
+.admin-label-region { color:#B6FF00 !important; }
+.admin-label-province { color:#FF00A8 !important; }
+.admin-label-city { color:#00D9FF !important; }
+.admin-label-barangay { color:#FFD700 !important; }
+.admin-boundary-label {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  font-size: 12px;
+  line-height: 1.15 !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+  text-shadow: -1px -1px 2px #101820, 1px -1px 2px #101820, -1px 1px 2px #101820, 1px 1px 2px #101820, 0 0 4px #101820 !important;
+}
+
+</style>
+<style>
+  .north-arrow-control {
+    background: rgba(255,255,255,0.96);
+    border: 1px solid rgba(0,0,0,0.22);
+    border-radius: 4px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.35);
+    width: 34px;
+    height: 48px;
+    margin-top: 8px !important;
+    margin-right: 10px !important;
+    cursor: default;
+  }
+  .north-arrow-inner {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    line-height: 1;
+  }
+  .north-arrow-label {
+    font: bold 11px/12px Arial, sans-serif;
+    color: #222;
+  }
+  .leaflet-control-scale {
+    margin-bottom: 14px !important;
+    margin-left: 12px !important;
+  }
+  .leaflet-control-scale-line {
+    background: rgba(255,255,255,0.82);
+    color: #222;
+    border-color: #222;
+    text-shadow: none;
+    font-weight: 600;
+  }
+</style>
+</head>
+
+<body>
+<div id="map"></div>
+<div id="sidebar">
+
+  <!-- HEADER -->
+  <div id="sidebar-header">
+    <div id="agency-logos">
+      <img src="Department_of_Transportation_(Philippines).svg.png">
+      <img src="LTFRB_Seal.svg.png">
+      <img src="Bagong_Pilipinas_Logo.svg.png">
+    </div>
+
+    <div id="sidebar-title">
+      LAND TRANSPORTATION<br>
+      PUBLIC UTILITY VEHICLE<br>
+      ROUTE MAP
+    </div>
+  </div>
+
+<!-- ===================== -->
+<!-- BOX 1: LEGEND -->
+<!-- ===================== -->
+<div class="panel-box">
+
+  <div class="legend-title">LEGEND</div>
+
+  <!-- LEGEND HEADER -->
+  <div style="
+    display:grid;
+    grid-template-columns:1fr 55px 55px 75px;
+    font-size:11px;
+    font-weight:bold;
+    margin-bottom:6px;
+    padding:0 4px;
+  ">
+    <div>Mode</div>
+    <div style="text-align:right;">Routes</div>
+    <div style="text-align:right;">FS</div>
+    <div style="text-align:right;">NAU</div>
+  </div>
+
+
+  <!-- ================= PUJ ================= -->
+
+  <div style="
+    background:#f3f3f3;
+    padding:4px 8px;
+    border-radius:4px;
+    margin-bottom:4px;
+    display:grid;
+    grid-template-columns:1fr 55px 55px 75px;
+  ">
+
+    <!-- MODE + OD/DO -->
+    <div style="
+      display:grid;
+      grid-template-columns:45px 1fr;
+      grid-template-rows:auto auto;
+      align-items:center;
+    ">
+
+      <div style="
+        grid-row:1 / span 2;
+        font-weight:bold;
+      ">
+        PUJ
+      </div>
+
+      <label class="legend-item" style="margin:0;">
+        <input type="checkbox" id="PUJ_OD" checked>
+        <span class="legend-line" style="background:#00FFFF;"></span>
+        OD
+      </label>
+
+      <label class="legend-item" style="margin:0;">
+        <input type="checkbox" id="PUJ_DO" checked>
+        <span class="legend-line" style="background:#0088FF;"></span>
+        DO
+      </label>
+
+    </div>
+
+    <!-- NUMBERS -->
+    <div id="stat_PUJ_routes"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+    <div id="stat_PUJ_fs"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+    <div id="stat_PUJ_nau"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+  </div>
+
+
+  <!-- ================= UVE ================= -->
+
+  <div style="
+    background:#f3f3f3;
+    padding:4px 8px;
+    border-radius:4px;
+    margin-bottom:4px;
+    display:grid;
+    grid-template-columns:1fr 55px 55px 75px;
+  ">
+
+    <div style="
+      display:grid;
+      grid-template-columns:45px 1fr;
+      grid-template-rows:auto auto;
+      align-items:center;
+    ">
+
+      <div style="
+        grid-row:1 / span 2;
+        font-weight:bold;
+      ">
+        UVE
+      </div>
+
+      <label class="legend-item" style="margin:0;">
+        <input type="checkbox" id="UVE_OD" checked>
+        <span class="legend-line" style="background:#FF00FF;"></span>
+        OD
+      </label>
+
+      <label class="legend-item" style="margin:0;">
+        <input type="checkbox" id="UVE_DO" checked>
+        <span class="legend-line" style="background:#B000FF;"></span>
+        DO
+      </label>
+
+    </div>
+
+    <div id="stat_UVE_routes"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+    <div id="stat_UVE_fs"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+    <div id="stat_UVE_nau"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+  </div>
+
+
+  <!-- ================= MB ================= -->
+
+  <div style="
+    background:#f3f3f3;
+    padding:4px 8px;
+    border-radius:4px;
+    margin-bottom:4px;
+    display:grid;
+    grid-template-columns:1fr 55px 55px 75px;
+  ">
+
+    <div style="
+      display:grid;
+      grid-template-columns:45px 1fr;
+      grid-template-rows:auto auto;
+      align-items:center;
+    ">
+
+      <div style="
+        grid-row:1 / span 2;
+        font-weight:bold;
+      ">
+        MB
+      </div>
+
+      <label class="legend-item" style="margin:0;">
+        <input type="checkbox" id="MINI_OD" checked>
+        <span class="legend-line" style="background:#00FF66;"></span>
+        OD
+      </label>
+
+      <label class="legend-item" style="margin:0;">
+        <input type="checkbox" id="MINI_DO" checked>
+        <span class="legend-line" style="background:#00AA44;"></span>
+        DO
+      </label>
+
+    </div>
+
+    <div id="stat_MINI_routes"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+    <div id="stat_MINI_fs"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+    <div id="stat_MINI_nau"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+  </div>
+
+
+  <!-- ================= PUB ================= -->
+
+  <div style="
+    background:#f3f3f3;
+    padding:4px 8px;
+    border-radius:4px;
+    margin-bottom:4px;
+    display:grid;
+    grid-template-columns:1fr 55px 55px 75px;
+  ">
+
+    <div style="
+      display:grid;
+      grid-template-columns:45px 1fr;
+      grid-template-rows:auto auto;
+      align-items:center;
+    ">
+
+      <div style="
+        grid-row:1 / span 2;
+        font-weight:bold;
+      ">
+        PUB
+      </div>
+
+      <label class="legend-item" style="margin:0;">
+        <input type="checkbox" id="PUB_OD" checked>
+        <span class="legend-line" style="background:#FFD700;"></span>
+        OD
+      </label>
+
+      <label class="legend-item" style="margin:0;">
+        <input type="checkbox" id="PUB_DO" checked>
+        <span class="legend-line" style="background:#FF8C00;"></span>
+        DO
+      </label>
+
+    </div>
+
+    <div id="stat_PUB_routes"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+    <div id="stat_PUB_fs"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+    <div id="stat_PUB_nau"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+  </div>
+
+
+  <!-- ================= P2P ================= -->
+
+  <div style="
+    background:#f3f3f3;
+    padding:4px 8px;
+    border-radius:4px;
+    margin-bottom:4px;
+    display:grid;
+    grid-template-columns:1fr 55px 55px 75px;
+  ">
+
+    <div style="
+      display:grid;
+      grid-template-columns:45px 1fr;
+      grid-template-rows:auto auto;
+      align-items:center;
+    ">
+
+      <div style="
+        grid-row:1 / span 2;
+        font-weight:bold;
+      ">
+        P2P
+      </div>
+
+      <label class="legend-item" style="margin:0;">
+        <input type="checkbox" id="P2P_OD" checked>
+        <span class="legend-line" style="background:#FF4444;"></span>
+        OD
+      </label>
+
+      <label class="legend-item" style="margin:0;">
+        <input type="checkbox" id="P2P_DO" checked>
+        <span class="legend-line" style="background:#800000;"></span>
+        DO
+      </label>
+
+    </div>
+
+    <div id="stat_P2P_routes"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+    <div id="stat_P2P_fs"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+    <div id="stat_P2P_nau"
+         style="text-align:right; align-self:start; font-weight:bold;">
+      0
+    </div>
+
+  </div>
+
+
+  <!-- ================= TOTAL ================= -->
+
+  <hr>
+
+  <div style="
+    display:grid;
+    grid-template-columns:1fr 55px 55px 75px;
+    font-weight:bold;
+    padding:0 4px;
+  ">
+
+    <div>TOTAL</div>
+
+    <div id="stat_TOTAL_routes"
+         style="text-align:right;">
+      0
+    </div>
+
+    <div id="stat_TOTAL_fs"
+         style="text-align:right;">
+      0
+    </div>
+
+    <div id="stat_TOTAL_nau"
+         style="text-align:right;">
+      0
+    </div>
+
+  </div>
+
+</div> <!-- END LEGEND BOX -->
+
+  <!-- ===================== -->
+  <!-- BOX 2: DISPLAY CONTROLS -->
+  <!-- ===================== -->
+<div class="panel-box">
+
+  <div class="panel-title">DISPLAY CONTROLS</div>
+
+<div class="panel-section">PUV Route Elements</div>
+
+<div class="puv-elements-grid">
+
+  <!-- LEFT COLUMN -->
+
+  <label class="legend-control">
+    <input type="checkbox" id="od" checked>
+    <span class="legend-sample line od"></span>
+    OD Direction
+  </label>
+
+  <label class="legend-control">
+    <input type="checkbox" id="do" checked>
+    <span class="legend-sample line do"></span>
+    DO Direction
+  </label>
+
+  <label class="legend-control">
+    <input type="checkbox" id="arrows" checked>
+    <span class="legend-sample arrow"></span>
+    Direction Arrows
+  </label>
+
+
+  <!-- RIGHT COLUMN -->
+
+  <label class="legend-control">
+    <input type="checkbox" id="endpoints" checked>
+    <span class="legend-sample endpoint"></span>
+    Endpoints
+  </label>
+
+  <label class="legend-control">
+    <input type="checkbox" id="stops" checked>
+    <span class="legend-sample stop"></span>
+    Stops
+  </label>
+
+</div>
+
+  <div class="panel-section">Other Transportation</div>
+  <div class="other-transport-row">
+    <label class="legend-control" title="Show or hide railway lines and stations">
+      <input type="checkbox" id="rail" checked>
+      <span class="facility-control-icon" style="background:#EF6C00;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M7 2h10a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3l2 2h-2l-3-2h-4l-3 2H5l2-2a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3Zm0 3v6h10V5H7Zm1 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm8 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></svg></span>
+      Railway Station
+    </label>
+    <label class="legend-control" title="Show or hide airports">
+      <input type="checkbox" id="airports" checked>
+      <span class="facility-control-icon" style="background:#1976D2;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5L21 16Z"/></svg></span>
+      Airport
+    </label>
+    <label class="legend-control" title="Show or hide seaports">
+      <input type="checkbox" id="seaports" checked>
+      <span class="facility-control-icon" style="background:#00897B;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM12 7v13M5 13a7 7 0 0 0 14 0M3 13h4M17 13h4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      Seaport
+    </label>
+    <label class="legend-control" title="Show or hide terminals">
+      <input type="checkbox" id="terminals" checked>
+      <span class="facility-control-icon" style="background:#7B1FA2;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 2C7 2 4 2.7 4 6v11.5A2.5 2.5 0 0 0 6.5 20H7v1.2a.8.8 0 0 0 1.6 0V20h6.8v1.2a.8.8 0 0 0 1.6 0V20h.5a2.5 2.5 0 0 0 2.5-2.5V6c0-3.3-3-4-8-4ZM6 6.5C6 5.4 8 5 12 5s6 .4 6 1.5V13H6V6.5ZM7.5 17.5A1.5 1.5 0 1 1 7.5 14.5a1.5 1.5 0 0 1 0 3Zm9 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/></svg></span>
+      Terminal
+    </label>
+  </div>
+
+  <div class="panel-section">Administrative Boundaries</div>
+  
+  <div class="admin-control-grid">
+    <div class="admin-control-heading"></div><div class="admin-control-heading">Boundary</div><div class="admin-control-heading">Name</div>
+    <div class="admin-level">Region</div><label class="admin-toggle" title="Show region boundaries"><input type="checkbox" id="boundaryRegion"><span class="admin-line region-line"></span></label><label class="admin-toggle" title="Show region names"><input type="checkbox" id="labelRegion"></label>
+    <div class="admin-level">Province</div><label class="admin-toggle" title="Show province boundaries"><input type="checkbox" id="boundaryProvince"><span class="admin-line province-line"></span></label><label class="admin-toggle" title="Show province names"><input type="checkbox" id="labelProvince"></label>
+    <div class="admin-level">City/Municipality</div><label class="admin-toggle" title="Show city/municipality boundaries"><input type="checkbox" id="boundaryCity"><span class="admin-line city-line"></span></label><label class="admin-toggle" title="Show city/municipality names"><input type="checkbox" id="labelCity"></label>
+    <div class="admin-level">Barangay</div><label class="admin-toggle" title="Show barangay boundaries"><input type="checkbox" id="boundaryBarangay"><span class="admin-line barangay-line"></span></label><label class="admin-toggle" title="Show barangay names"><input type="checkbox" id="labelBarangay"></label>
+  </div>
+
+</div>
+
+
+<!-- ===================== -->
+<!-- DISCUSSION FILTERS -->
+<!-- ===================== -->
+
+<button id="openDiscussionPanel"
+  type="button"
+  style="
+    width:100%;
+    padding:8px;
+    cursor:pointer;
+  ">
+  FILTER
+</button>
+
+<div id="discussionPanel">
+
+  <div class="filter-popup-title">
+    FILTER
+  </div>
+
+  <label>
+    FOR DISCUSSION
+    <select id="discussionSelect">
+      <option value="">ALL</option>
+    </select>
+  </label>
+
+<label class="particular-label">
+  PARTICULARS
+</label>
+
+<select id="particularSelect" multiple>
+</select>
+
+<button id="clearParticularBtn"
+  type="button"
+  style="
+    width:100%;
+    margin-top:6px;
+    padding:6px;
+    cursor:pointer;
+  ">
+  CLEAR SELECTION
+</button>
+
+</div>
+
+</div>
+
+<div id="regionPanel" style="
+position:absolute;
+top:15px;
+left:350px;
+width:480px;
+max-height:80vh;
+overflow:visible;
+
+background:white;
+border-radius:10px;
+padding:10px;
+
+box-shadow:0 2px 10px rgba(0,0,0,.3);
+
+display:none;
+z-index:2000;
+">
+
+<div class="summaryGrid">
+
+<div class="summaryLeft">
+
+<div class="panel-box">
+
+<div style="
+font-weight:bold;
+font-size:16px;
+margin-bottom:8px;
+">
+Summary by LTFRB Office
+
+</div>
+
+<table
+id="regionTable"
+style="
+width:100%;
+font-size:12px;
+border-collapse:collapse;
+">
+
+
+<tr>
+<th></th>
+<th align="left">Region</th>
+<th align="right">Routes</th>
+<th align="right">Fleet</th>
+</tr>
+
+<tr id="regionTotalRow" style="
+font-weight:bold;
+border-top:1px solid #999;
+">
+<td></td>
+<td>TOTAL</td>
+<td align="right" id="regionTotalRoutes">0</td>
+<td align="right" id="regionTotalFleet">0</td>
+</tr>
+
+</table>
+
+</div>
+
+</div>
+
+<div class="summaryRight">
+
+<div class="panel-box">
+
+<div style="
+font-weight:bold;
+font-size:16px;
+margin-bottom:8px;
+">
+Summary by Route Class
+
+<div
+id="routeClassWarning"
+style="
+display:none;
+margin-bottom:8px;
+padding:6px;
+background:#fff3cd;
+border:1px solid #ffe69c;
+border-radius:6px;
+color:#664d03;
+font-size:12px;
+font-weight:bold;
+">
+⚠ *Some routes have blank Route Classification values in data source.
+</div>
+
+</div>
+
+<table
+id="routeClassTable"
+style="
+width:100%;
+font-size:12px;
+border-collapse:collapse;
+">
+
+<tr>
+<th></th>
+<th align="left">Classification</th>
+<th align="right">Routes</th>
+<th align="right">Fleet</th>
+</tr>
+
+<tbody id="routeClassBody">
+</tbody>
+
+<tr style="
+font-weight:bold;
+border-top:1px solid #999;
+">
+<td></td>
+<td>TOTAL</td>
+<td id="classTotalRoutes" align="right">0</td>
+<td id="classTotalFleet" align="right">0</td>
+</tr>
+
+</table>
+
+</div>
+
+<div class="panel-box">
+
+<div style="
+font-weight:bold;
+font-size:16px;
+margin-bottom:8px;
+">
+Summary by RouteRat
+</div>
+
+<table
+id="routeRatTable"
+style="
+width:100%;
+font-size:12px;
+border-collapse:collapse;
+">
+
+<tr>
+<th></th>
+<th align="left">Status</th>
+<th align="right">Routes</th>
+<th align="right">Fleet</th>
+</tr>
+
+<tr>
+<td>
+<input
+type="checkbox"
+class="routeRatFilter"
+data-status="Approved"
+checked>
+</td>
+<td>Approved</td>
+<td id="Approved_routes" align="right">0</td>
+<td id="Approved_units" align="right">0</td>
+</tr>
+
+<tr>
+<td>
+<input
+type="checkbox"
+class="routeRatFilter"
+data-status="For RouteRat"
+checked>
+</td>
+<td>For RouteRat</td>
+<td id="For_RouteRat_routes" align="right">0</td>
+<td id="For_RouteRat_units" align="right">0</td>
+</tr>
+
+<tr style="
+font-weight:bold;
+border-top:1px solid #999;
+">
+<td></td>
+<td>TOTAL</td>
+<td id="routeRatTotalRoutes" align="right">0</td>
+<td id="routeRatTotalFleet" align="right">0</td>
+</tr>
+
+</table>
+
+</div>
+
+<div class="panel-box">
+
+<div style="
+font-weight:bold;
+font-size:16px;
+margin-bottom:8px;
+">
+Summary by Green Route
+</div>
+
+<table
+id="greenRouteTable"
+style="
+width:100%;
+font-size:12px;
+border-collapse:collapse;
+">
+
+<tr>
+<th></th>
+<th align="left">Type</th>
+<th align="right">Routes</th>
+<th align="right">Fleet</th>
+</tr>
+
+<tr>
+<td>
+<input
+type="checkbox"
+class="greenRouteFilter"
+data-green="Green Route"
+checked>
+</td>
+<td>Green Route</td>
+<td id="Green_Route_routes" align="right">0</td>
+<td id="Green_Route_units" align="right">0</td>
+</tr>
+
+<tr>
+<td>
+<input
+type="checkbox"
+class="greenRouteFilter"
+data-green="Regular Route"
+checked>
+</td>
+<td>Regular Route</td>
+<td id="Regular_Route_routes" align="right">0</td>
+<td id="Regular_Route_units" align="right">0</td>
+</tr>
+
+<tr style="
+font-weight:bold;
+border-top:1px solid #999;
+">
+<td></td>
+<td>TOTAL</td>
+<td id="greenRouteTotalRoutes" align="right">0</td>
+<td id="greenRouteTotalFleet" align="right">0</td>
+</tr>
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<div id="route-popup-list" style="
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 220px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid #ccc;
+  padding: 8px;
+  font-family: Arial;
+  font-size: 14px;
+  z-index: 1300;
+  display: none;
+"></div>
+
+<div id="route-detail-panel" style="
+  position: absolute;
+  bottom: 20px;
+  right: 250px;
+  width: 220px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid #999;
+  padding: 8px;
+  font-family: Arial;
+  font-size: 14px;
+  z-index: 1400;
+  display: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+">
+  <div id="detail-arrow" style="
+    position:absolute;
+    right:-10px;
+    top:20px;
+    width:0;
+    height:0;
+    border-top:10px solid transparent;
+    border-bottom:10px solid transparent;
+    border-left:10px solid white;
+  "></div>
+
+  <div id="detail-content"></div>
+</div>
+
+<script>
+
+  // ==== MAP INIT ====
+const map = L.map('map', {
+  zoomControl:false
+}).setView([12.8797, 120], 6);
+
+// Keep terminal facility markers visually consistent and above overlapping PUV endpoints.
+// Leaflet's default markerPane is z-index 600; this dedicated pane draws terminals above it.
+map.createPane('terminalFacilityPane');
+map.getPane('terminalFacilityPane').style.zIndex = 650;
+
+
+// =====================================================
+// ADMINISTRATIVE BOUNDARIES — use one consistent ArcGIS FeatureServer
+// source for Region, Province, City/Municipality, and Barangay so adjacent
+// administrative levels are based on the same boundary dataset.
+// Separate boundary and name toggles are preserved for all four levels.
+// =====================================================
+(function initAdministrativeBoundaries() {
+  const serviceBase = 'https://services7.arcgis.com/poQdgvLD6DHnbpsT/arcgis/rest/services/Administrative_Boundaries/FeatureServer/';
+  // All four levels use the same service; avoid mixing city/municipality
+  // boundaries from a different dataset with region/province boundaries.
+  // Boundary lines and labels intentionally have different zoom thresholds.
+  const boundaryConfig = {
+    Region:    { checkbox:'boundaryRegion',   label:'labelRegion',   level:0, color:'#B6FF00', dashArray:'10 5', pane:'adminRegionPane',   paneZ:360, minZoom:5, labelZoom:7 },
+    Province:  { checkbox:'boundaryProvince', label:'labelProvince', level:1, color:'#FF00A8', dashArray:'8 5',  pane:'adminProvincePane', paneZ:350, minZoom:8, labelZoom:8 },
+    City:      { checkbox:'boundaryCity',     label:'labelCity',     level:2, color:'#00D9FF', dashArray:'5 4',  pane:'adminCityPane',     paneZ:340, minZoom:11,labelZoom:11 },
+    Barangay:  { checkbox:'boundaryBarangay', label:'labelBarangay', level:3, color:'#FFFF99', dashArray:'3 3',  pane:'adminBarangayPane', paneZ:325, minZoom:13,labelZoom:13 }
+  };
+  const states = {};
+  Object.entries(boundaryConfig).forEach(([key,cfg]) => {
+    map.createPane(cfg.pane);
+    map.getPane(cfg.pane).style.zIndex = String(cfg.paneZ);
+    states[key] = { group:L.layerGroup(), requestId:0, lastKey:'', loading:false, data:null };
+    document.getElementById(cfg.checkbox)?.addEventListener('change', () => refresh(key));
+    document.getElementById(cfg.label)?.addEventListener('change', () => refresh(key));
+  });
+
+  function featureName(props, key) {
+    const fields = {
+      Region:['REGION_NAME','REGION','region_name','region','REG_NAME','reg_name','NAME_1','NAME','name','ADM1_EN','PSGC_NAME','psgc_name'],
+      Province:['PROVINCE','PROVINCE_NAME','PROV_NAME','province','province_name','prov_name','NAME_2','NAME_1','NAME','name','ADM2_EN','PSGC_NAME','psgc_name'],
+      City:['CITYMUN','CITY_MUN','CITY_MUNICIPALITY','MUNICIPALITY','MUNICIPALITY_NAME','CITY_NAME','CITY','citymun','name_3','NAME_3','NAME_2','NAME','name','ADM3_EN','PSGC_NAME','psgc_name'],
+      Barangay:['BRGY_NAME','BARANGAY_NAME','BARANGAY','barangay','brgy','BRGY','NAME_4','NAME_3','NAME','name','ADM4_EN','PSGC_NAME','psgc_name']
+    }[key] || ['NAME','name'];
+    for (const f of fields) { const v=props[f]; if(v!==undefined && v!==null && String(v).trim() && !/^\d{8,}$/.test(String(v).trim())) return String(v).trim(); }
+    const generic=Object.keys(props).filter(k=>/(name|city|muni|prov|brgy|barangay)/i.test(k));
+    for(const f of generic){const v=props[f]; if(v!==undefined&&v!==null&&String(v).trim()&&!/^\d{8,}$/.test(String(v).trim())) return String(v).trim();}
+    return '';
+  }
+  // Smooth zoom scaling: labels and boundary strokes grow as the user zooms in.
+  // Each administrative level has its own readable size range so dense lower-level
+  // labels do not become overwhelming at national or regional views.
+  function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+  function labelSize(key, zoom) {
+    const ranges = {
+      Region:    { startZoom:5,  startSize:11, endZoom:13, endSize:17 },
+      Province:  { startZoom:9,  startSize:10, endZoom:17, endSize:16 },
+      City:      { startZoom:11, startSize:10, endZoom:19, endSize:16 },
+      Barangay:  { startZoom:15, startSize:9,  endZoom:20, endSize:14 }
+    };
+    const r = ranges[key];
+    const t = clamp((zoom - r.startZoom) / (r.endZoom - r.startZoom), 0, 1);
+    return Math.round((r.startSize + (r.endSize - r.startSize) * t) * 10) / 10;
+  }
+  function lineWeight(key, zoom) {
+    const ranges = {
+      Region:    { startZoom:5,  startWidth:1.8, endZoom:13, endWidth:2.9 },
+      Province:  { startZoom:9,  startWidth:1.6, endZoom:17, endWidth:2.7 },
+      City:      { startZoom:11, startWidth:1.3,endZoom:19, endWidth:2.5 },
+      Barangay:  { startZoom:14, startWidth:1.0, endZoom:20, endWidth:2.3 }
+    };
+    const r = ranges[key];
+    const t = clamp((zoom - r.startZoom) / (r.endZoom - r.startZoom), 0, 1);
+    return Math.round((r.startWidth + (r.endWidth - r.startWidth) * t) * 100) / 100;
+  }
+  function render(key, data) {
+    const cfg=boundaryConfig[key], state=states[key];
+    const zoom=map.getZoom();
+    const lineOn=!!document.getElementById(cfg.checkbox)?.checked && zoom>=cfg.minZoom;
+    const namesOn=!!document.getElementById(cfg.label)?.checked && zoom>=cfg.labelZoom;
+    if (!lineOn && !namesOn) { map.removeLayer(state.group); return; }
+    // Build a replacement layer off-map first, so the current boundaries stay visible during refresh.
+    const nextGroup=L.layerGroup();
+    const layer=L.geoJSON(data, {
+      pane:cfg.pane, renderer:L.canvas(), interactive:false,
+      style:{color:cfg.color,weight:lineWeight(key,zoom),opacity:lineOn?0.68:0,dashArray:cfg.dashArray,lineCap:'round',lineJoin:'round',fill:false},
+      onEachFeature:(feature,featureLayer)=>{
+        if(!namesOn) return;
+        const name=featureName(feature.properties||{},key);
+        if(name) featureLayer.bindTooltip(name,{permanent:true,direction:'center',sticky:false,className:'admin-boundary-label admin-label-'+key.toLowerCase(),opacity:1,pane:'tooltipPane'});
+      }
+    });
+    nextGroup.addLayer(layer);
+    map.removeLayer(state.group);
+    state.group=nextGroup;
+    state.data=data;
+    nextGroup.addTo(map);
+    // Leaflet creates permanent tooltip elements when the layer is added; size them for current zoom.
+    nextGroup.eachLayer(groupLayer => groupLayer.eachLayer(featureLayer => {
+      const tip=featureLayer.getTooltip();
+      if (tip && tip.getElement()) tip.getElement().style.fontSize=labelSize(key,zoom)+'px'; tip.getElement().style.lineHeight='1.15';
+    }));
+  }
+  async function refresh(key) {
+    const cfg=boundaryConfig[key], state=states[key];
+    const lineOn=!!document.getElementById(cfg.checkbox)?.checked;
+    const namesOn=!!document.getElementById(cfg.label)?.checked;
+    if(!lineOn && !namesOn){map.removeLayer(state.group);state.lastKey='';return;}
+    if(map.getZoom()<cfg.minZoom && map.getZoom()<cfg.labelZoom){map.removeLayer(state.group);return;}
+    // When the zoom is below a layer's visibility threshold, hide it without fetching.
+    if(map.getZoom()<cfg.minZoom && !namesOn){map.removeLayer(state.group);return;}
+    if(map.getZoom()<cfg.labelZoom && !lineOn){map.removeLayer(state.group);return;}
+    const b=map.getBounds();
+    const keyStr=[cfg.level,b.getWest().toFixed(2),b.getSouth().toFixed(2),b.getEast().toFixed(2),b.getNorth().toFixed(2)].join('|');
+    if(keyStr===state.lastKey){ if(state.data) render(key,state.data); return; }
+    state.lastKey=keyStr;
+    const req=++state.requestId;
+    state.loading=true;
+    try {
+      const params=new URLSearchParams({where:'1=1',outFields:'*',returnGeometry:'true',f:'geojson',geometry:[b.getWest(),b.getSouth(),b.getEast(),b.getNorth()].join(','),geometryType:'esriGeometryEnvelope',inSR:'4326',spatialRel:'esriSpatialRelIntersects',outSR:'4326',resultRecordCount:cfg.level===3?'1500':'2000'});
+      const layerUrl = serviceBase + cfg.level;
+      const response=await fetch(layerUrl+'/query?'+params.toString());
+      if(!response.ok) throw new Error('ArcGIS HTTP '+response.status);
+      const data=await response.json();
+      if(req!==state.requestId) return;
+      if(!data || !Array.isArray(data.features)) throw new Error('The boundary service did not return GeoJSON features.');
+      state.data=data;
+      render(key,data);
+      console.info(key+' boundary features loaded:',data.features.length,'(consistent Administrative_Boundaries source)');
+    } catch(err) {
+      if(req!==state.requestId) return;
+      console.error('Could not load '+key+' boundaries:',err);
+      state.lastKey=''; // Keep the previous layer visible if the request fails.
+      if(state.data) render(key,state.data);
+    } finally { if(req===state.requestId) state.loading=false; }
+  }
+  let pending=false;
+  function refreshAll(){if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;Object.keys(boundaryConfig).forEach(refresh);});}
+  map.on('moveend',refreshAll);
+  map.on('zoomend',refreshAll);
+})();
+
+
+// =====================================================
+// KEEP LEAFLET MAP ALIGNED WHEN CONTAINER CHANGES SIZE
+// =====================================================
+
+setTimeout(function () {
+  map.invalidateSize(true);
+}, 300);
+
+window.addEventListener("resize", function () {
+  map.invalidateSize(true);
+});
+
+
+
+map.createPane('popupPane');
+map.getPane('popupPane').style.zIndex = 1200;
+
+
+  L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+    maxZoom: 20,
+    subdomains: ['mt0','mt1','mt2','mt3']
+  }).addTo(map);
+
+  // ==== PANES (z-index control) ====
+  map.createPane('doPane');
+  map.createPane('odPane');
+  map.createPane('arrowsPane');
+  map.createPane('stopsPane');
+  map.createPane('stopsDOPane');
+  map.createPane('stopsODPane');
+  map.createPane('endpointsPane');
+
+  map.createPane('endpointsDOPane');
+  map.createPane('endpointsODPane');
+
+  map.createPane('railPane');
+  map.getPane('railPane').style.zIndex = 200; 
+
+  map.createPane('sleeperPane');
+  map.getPane('sleeperPane').style.zIndex = 201;
+
+  map.createPane('highlightPane');
+  map.getPane('highlightPane').style.zIndex = 2000; // above all routes, stops, endpoints
+
+// dedicated geoJSON layer for hover highlights (temporary)
+const hoverHighlightLayer = L.geoJSON(null, {
+  interactive: false,
+  style: {
+    color: '#FFFF00',
+    weight: 5,
+    opacity: 1
+  },
+  pane: 'highlightPane'
+}).addTo(map);
+
+// ===== SELECTED ROUTE HIGHLIGHT LAYER =====
+
+const highlightLayer = L.geoJSON([], {
+  pane: 'highlightPane',
+  style: {
+    color: '#FFFF00',
+    weight: 8
+  }
+}).addTo(map);
+
+  map.getPane('doPane').style.zIndex = 500;
+  map.getPane('odPane').style.zIndex = 510;
+  map.getPane('arrowsPane').style.zIndex = 500;
+  map.getPane('stopsPane').style.zIndex = 600;
+  map.getPane('stopsDOPane').style.zIndex = 600;
+  map.getPane('stopsODPane').style.zIndex = 610; // OD stops render above DO stops
+  map.getPane('endpointsDOPane').style.zIndex = 700;
+  map.getPane('endpointsODPane').style.zIndex = 701;
+
+  // ==== LAYERS ====
+let routesLayer;
+let trainTracks = [];
+const SHOW_SLEEPERS = false;
+
+const getRailWeight = (z) => {
+  if (z >= 14) return 4;
+  if (z >= 12) return 3;
+  if (z >= 10) return 2;
+  if (z >= 8) return 1.5;
+  return 1;
+};
+
+const getSleeperSize = (z) => {
+  if (z >= 14) return 10;
+  if (z >= 12) return 8;
+  if (z >= 10) return 6;
+  if (z >= 8) return 4;
+  return 0;
+};
+
+const routeColorLookup = {};
+const routeMetaLookup = {};
+let hoverTooltip = null;
+
+let allRouteFeatures = [];
+
+// TEMPORARILY KEEP THESE
+const routeClassStats = {};
+const routeRatStats = {};
+const regionStats = {};
+const routeStats = {};
+
+
+let clickedLayers = [];        // all routes found at clicked point
+let selectedRouteLayers = [];  // route selected from list
+
+let routeSelectionActive = false;
+// Controls which route set drives the legend KPI cards.
+let legendStatsSelectionMode = 'default'; // default | overlap | endpoint | route
+let endpointSelectionActive = false;
+let selectedEndpointName = '';
+let endpointRouteNames = new Set();
+
+let railwayReady = false;
+
+let selectedDetailPopup = null;
+
+const zoomControl = L.control.zoom({
+  position:'topright'
+});
+
+zoomControl.addTo(map);
+
+// NORTH ARROW — placed beside the zoom control at the top-right.
+const northArrowControl = L.control({ position: 'topright' });
+northArrowControl.onAdd = function () {
+  const div = L.DomUtil.create('div', 'leaflet-control north-arrow-control');
+  div.title = 'North';
+  div.setAttribute('aria-label', 'North direction');
+  div.innerHTML = `
+    <div class="north-arrow-inner">
+      <span class="north-arrow-label">N</span>
+      <svg width="22" height="30" viewBox="0 0 22 30" aria-hidden="true">
+        <path d="M11 1 L20 25 L11 20 L2 25 Z" fill="#222" stroke="#fff" stroke-width="1.2" stroke-linejoin="round" />
+      </svg>
+    </div>`;
+  L.DomEvent.disableClickPropagation(div);
+  return div;
+};
+northArrowControl.addTo(map);
+
+// MAP SCALE — metric units, positioned bottom-left to avoid the route-details panel.
+L.control.scale({
+  position: 'bottomleft',
+  metric: true,
+  imperial: false,
+  maxWidth: 150,
+  updateWhenIdle: true
+}).addTo(map);
+
+setTimeout(() => {
+
+  const zoomEl =
+    document.querySelector('.leaflet-control-zoom');
+
+},100);
+
+  const trainLayer = L.layerGroup().addTo(map);
+  const railGroup = L.layerGroup().addTo(map);
+
+  map.on('click', function(){
+
+endpointSelectionActive = false;
+selectedEndpointName = '';
+endpointRouteNames.clear();
+routeSelectionActive = false;
+legendStatsSelectionMode = 'default';
+clickedLayers = [];
+
+hoverHighlightLayer.clearLayers();
+
+
+selectedRouteLayers.forEach(l => {
+
+  l.setStyle({
+    color: l.feature.properties.routeColor,
+    weight: l.feature.properties.routeWeight
+  });
+
+});
+
+selectedRouteLayers = [];
+highlightLayer.clearLayers();
+
+  document.getElementById('route-popup-list').style.display = 'none';
+
+  document.getElementById('route-popup-list').innerHTML = '';
+
+  document.getElementById('route-detail-panel').style.display = 'none';
+
+  if(selectedDetailPopup){
+    map.closePopup(selectedDetailPopup);
+    selectedDetailPopup = null;
+  }
+  updateLegendStats();
+
+});
+
+
+function getRouteColor(deno, direction) {
+
+  const colors = {
+    "PUJ": {
+      OD: "#00FFFF",
+      DO: "#0088FF"
+    },
+
+    "UVE": {
+      OD: "#FF00FF",
+      DO: "#B000FF"
+    },
+
+    "Mini bus": {
+      OD: "#00FF66",
+      DO: "#00AA44"
+    },
+
+    "PUB": {
+      OD: "#FFD700",
+      DO: "#FF8C00"
+    },
+
+    "P2P": {
+      OD: "#FF4444",
+      DO: "#800000"
+    }
+  };
+
+  return colors[deno]?.[direction] || "#FFFFFF";
+}
+
+function isRouteVisible(layer){
+    return layer._visible === true;
+}
+
+function distanceToPolyline(latlng, layer){
+
+  let minDist = Infinity;
+
+  const latlngs = layer.getLatLngs().flat();
+
+  for(let i=0;i<latlngs.length-1;i++){
+
+    const p = map.latLngToLayerPoint(latlng);
+
+    const p1 = map.latLngToLayerPoint(latlngs[i]);
+
+    const p2 = map.latLngToLayerPoint(latlngs[i+1]);
+
+    const dist =
+      L.LineUtil.pointToSegmentDistance(
+        p,
+        p1,
+        p2
+      );
+
+    if(dist < minDist){
+      minDist = dist;
+    }
+
+  }
+
+  return minDist;
+}
+
+function getFacilitySize(zoom) {
+  // Base size for railway stations, airports, and seaports.
+  if (zoom >= 16) return 18;
+  if (zoom >= 15) return 16;
+  if (zoom >= 14) return 14;
+  if (zoom >= 13) return 12;
+  if (zoom >= 12) return 10;
+  if (zoom >= 11) return 8;
+  if (zoom >= 10) return 6;
+  if (zoom >= 9) return 4;
+  return 2;
+}
+
+function getEndpointSize(zoom) {
+  // Endpoints: one size step smaller than the original endpoint table.
+  if (zoom >= 16) return 18;
+  if (zoom >= 15) return 16;
+  if (zoom >= 14) return 14;
+  if (zoom >= 13) return 12;
+  if (zoom >= 12) return 9;
+  if (zoom >= 11) return 6;
+  if (zoom >= 10) return 3;
+  if (zoom >= 9) return 2;
+  return 1;
+}
+
+function getStopSize(zoom) {
+  // Stops: one size step smaller than the previous table.
+  if (zoom >= 16) return 8;
+  if (zoom >= 15) return 7;
+  if (zoom >= 14) return 6;
+  if (zoom >= 13) return 5;
+  if (zoom >= 12) return 3;
+  if (zoom >= 11) return 3;
+  if (zoom >= 10) return 2;
+  if (zoom >= 9) return 2;
+  return 1;
+}
+
+  const trainStations = L.layerGroup();
+  const stopsLayer = L.layerGroup();
+  const endpointsLayer = L.layerGroup();
+
+  // AIRPORTS AND SEAPORTS
+  const airportsLayer = L.layerGroup();
+  const seaportsLayer = L.layerGroup();
+  const terminalsLayer = L.layerGroup();
+
+
+
+  // ==== FETCH PUV ROUTES ====
+fetch('https://script.google.com/macros/s/AKfycbxxyRa5NzqIqPH07D9N8jnpx5CzczsxdxljLLy4rxCDzbtFWHD5yK5ubv3HoJZ1MxuNcg/exec')
+  .then(res => res.json())
+  .then(data => {
+
+
+// =====================================================
+// DISCUSSION DATA
+// =====================================================
+
+const discussionTopics = data.topics || [];
+
+
+// Keep the original data available to the filter
+window.topicRows = discussionTopics;
+
+
+
+// =====================================================
+// HELPER FUNCTIONS
+// Accept different possible Google Sheet column names
+// =====================================================
+
+function getDiscussionValue(row) {
+
+  return String(
+    row["FOR DISCUSSION"] ??
+    row["For Discussion"] ??
+    row["for discussion"] ??
+    row.discussion ??
+    ""
+  ).trim();
+
+}
+
+
+function getParticularValue(row) {
+
+  return String(
+    row["PARTICULAR"] ??
+    row["Particular"] ??
+    row["particular"] ??
+    row.particular ??
+    ""
+  ).trim();
+
+}
+
+
+function getRouteValue(row) {
+
+  return String(
+    row["ROUTE"] ??
+    row["Route"] ??
+    row["route"] ??
+    row.route_name ??
+    ""
+  ).trim();
+
+}
+
+
+// =====================================================
+// BUILD FOR DISCUSSION DROPDOWN
+// =====================================================
+
+const discussionSelect =
+  document.getElementById("discussionSelect");
+
+
+// Remove any dynamically-created options first
+discussionSelect.innerHTML =
+  '<option value="">ALL</option>';
+
+
+const discussionValues = [
+  ...new Set(
+    discussionTopics
+      .map(row => getDiscussionValue(row))
+      .filter(value => value !== "")
+  )
+].sort();
+
+
+discussionValues.forEach(discussion => {
+
+  const option =
+    document.createElement("option");
+
+  option.value = discussion;
+  option.textContent = discussion;
+
+  discussionSelect.appendChild(option);
+
+});
+
+
+// ===== BUILD PARTICULARS FOR SELECTED DISCUSSION =====
+
+const particularSelect =
+  document.getElementById('particularSelect');
+
+function updateParticulars() {
+
+  // Clear old PARTICULARS
+  particularSelect.innerHTML = "";
+
+
+  const selectedDiscussion =
+    discussionSelect.value;
+
+
+  // Filter rows by FOR DISCUSSION
+  const filteredTopics =
+    selectedDiscussion
+
+      ? discussionTopics.filter(row =>
+          getDiscussionValue(row) ===
+          String(selectedDiscussion).trim()
+        )
+
+      : discussionTopics;
+
+
+  // Get unique PARTICULARS
+  const particularValues = [
+    ...new Set(
+      filteredTopics
+        .map(row => getParticularValue(row))
+        .filter(value => value !== "")
+    )
+  ].sort();
+
+
+  // Build PARTICULARS list
+  particularValues.forEach(particular => {
+
+    const option =
+      document.createElement("option");
+
+    option.value = particular;
+    option.textContent = particular;
+
+    particularSelect.appendChild(option);
+
+  });
+
+}
+
+// Initial PARTICULARS list
+updateParticulars();
+
+// ===== WHEN FOR DISCUSSION CHANGES =====
+
+discussionSelect.addEventListener("change", function () {
+
+  // Reset diagnostic test
+  window._discussionTestShown = false;
+
+  // Rebuild PARTICULARS
+  updateParticulars();
+
+  // Apply map filter
+  toggleLayers();
+
+  // Update legend
+  updateLegendStats();
+
+});
+
+
+// ===== WHEN PARTICULARS CHANGES =====
+
+particularSelect.addEventListener("change", function () {
+
+  // Apply the particulars filter to the map
+  toggleLayers();
+
+  // Update legend totals
+  updateLegendStats();
+
+});
+
+
+// ===== CLEAR PARTICULARS =====
+
+document.getElementById("clearParticularBtn")
+  .addEventListener("click", function(){
+
+    const particularSelect =
+      document.getElementById("particularSelect");
+
+    // Clear all selected Particulars
+    Array.from(particularSelect.options)
+      .forEach(option => {
+        option.selected = false;
+      });
+
+    // Refresh the map and statistics
+    toggleLayers();
+    updateLegendStats();
+
+  });
+
+
+
+    const validFeatures = data.features.filter(f => {
+      const status = String((f.properties || {}).status || (f.properties || {}).STATUS || "").trim().toUpperCase();
+      return f.geometry && f.geometry.coordinates && f.geometry.coordinates.length > 0 && status !== "SUPERSEDED" && status !== "DELETED";
+    });
+
+allRouteFeatures = validFeatures;
+
+const countedRegionRoutes = new Set();
+
+const countedClassRoutes = new Set();
+let blankRouteClassCount = 0;
+
+validFeatures.forEach(feature => {
+
+  const p = feature.properties;
+
+const className =
+  (p.route_study || "").trim() ||
+  "Unclassified*";
+
+  const key =
+    className + "|" +
+    p.route_name;
+
+  if(countedClassRoutes.has(key))
+    return;
+
+  countedClassRoutes.add(key);
+
+  if(!routeClassStats[className]){
+    routeClassStats[className] = {
+      routes:0,
+      units:0
+    };
+  }
+
+  routeClassStats[className].routes++;
+
+  routeClassStats[className].units +=
+    Number(p.authorized_units || 0);
+
+});
+
+// ===== BUILD ROUTERAT STATUS STATISTICS =====
+
+const countedStatusRoutes = new Set();
+
+validFeatures.forEach(feature => {
+
+  const p = feature.properties;
+
+  const status =
+    (p.status || "").trim();
+
+  // Ignore Superseded completely
+  if(status === "Superseded")
+    return;
+
+  let statusGroup;
+
+  if(
+    status === "Approved" ||
+    status === "Suspended"
+  ){
+    statusGroup = "Approved";
+  }else{
+    // Includes "For RouteRat" and blank
+    statusGroup = "For RouteRat";
+  }
+
+  const key =
+    statusGroup + "|" +
+    p.route_name;
+
+  if(countedStatusRoutes.has(key))
+    return;
+
+  countedStatusRoutes.add(key);
+
+  if(!routeRatStats[statusGroup]){
+    routeRatStats[statusGroup] = {
+      routes:0,
+      units:0
+    };
+  }
+
+  routeRatStats[statusGroup].routes++;
+
+  routeRatStats[statusGroup].units +=
+    Number(p.authorized_units || 0);
+
+});
+
+
+validFeatures.forEach(feature => {
+
+  const p = feature.properties;
+
+  const key =
+    p.region + "|" +
+    p.route_name;
+
+if(countedRegionRoutes.has(key)) return;
+
+countedRegionRoutes.add(key);
+
+  if(!regionStats[p.region]){
+    regionStats[p.region] = {
+      routes:0,
+      units:0
+    };
+  }
+
+  regionStats[p.region].routes++;
+
+  regionStats[p.region].units +=
+    Number(p.authorized_units || 0);
+
+});
+
+
+// ===== BUILD ROUTE STATISTICS =====
+const countedRoutes = new Set();
+
+validFeatures.forEach(feature => {
+
+  const p = feature.properties;
+
+  const key =
+    p.deno + "|" + p.route_name;
+
+  if(countedRoutes.has(key)) return;
+
+  countedRoutes.add(key);
+
+  if(!routeStats[p.deno]){
+    routeStats[p.deno] = {
+      routes:0,
+      units:0
+    };
+  }
+
+  routeStats[p.deno].routes += 1;
+
+  routeStats[p.deno].units +=
+    Number(p.authorized_units || 0);
+
+});
+
+validFeatures.forEach(feature => {
+
+  const routeName = feature.properties.route_name;
+  const direction = feature.properties.direction;
+  const deno = feature.properties.deno;
+
+  const routeColor = getRouteColor(deno, direction);
+
+  routeColorLookup[
+    routeName + "_" + direction
+  ] = routeColor;
+
+  routeMetaLookup[
+    normalizeRouteName(routeName) + "__" + normalizeDirection(direction)
+  ] = {
+    deno: deno,
+    direction: normalizeDirection(direction),
+    color: routeColor,
+    routeName: routeName
+  };
+
+  feature.properties.routeColor = routeColor;
+  feature.properties.routeWeight =
+    getRouteWeight(
+        feature.properties.deno,
+        map.getZoom()
+    );
+});
+
+buildRegionTable();
+
+
+const denoOrder = {
+  "PUJ": 1,
+  "UVE": 2,
+  "PUB": 3,
+  "Mini bus": 4,
+  "P2P": 5
+};
+
+validFeatures.sort((a, b) => {
+
+  const da = denoOrder[a.properties.deno] || 99;
+  const db = denoOrder[b.properties.deno] || 99;
+
+  return da - db;
+
+});
+
+    routesLayer = L.geoJSON(validFeatures, {
+style: feature => ({
+  color: getRouteColor(
+    feature.properties.deno,
+    feature.properties.direction
+  ),
+  weight: getRouteWeight(
+    feature.properties.deno,
+    map.getZoom()
+  )
+}),
+
+      onEachFeature: (feature, layer) => {
+        // Assign OD/DO pane
+        layer.options.pane = feature.properties.direction === "OD" ? "odPane" : "doPane";
+
+        const p = feature.properties || {};
+
+
+
+console.log(p.deno, p.route_name);
+
+
+
+
+let highlightedLayers = [];
+
+layer.on('mouseover', function(e){
+
+  const latlng = e.latlng;
+
+  // clear previous hover highlight
+  hoverHighlightLayer.clearLayers();
+
+  const routesToHighlight = [];
+
+// highlight both OD and DO of any visible route near the cursor
+routesLayer.eachLayer(l => {
+
+  // Skip routes that are currently hidden
+if (!isRouteVisible(l))
+  return;
+
+
+  if(distanceToPolyline(latlng, l) <= 10){
+    routesToHighlight.push(l.feature);
+  }
+
+});
+
+  // draw them on top using dedicated hoverHighlightLayer
+  hoverHighlightLayer.addData(routesToHighlight);
+
+// tooltip
+const uniqueRoutes = new Set();
+const denoCounts = {};
+
+routesToHighlight.forEach(f => {
+
+  const p = f.properties;
+
+  // Count each Route + DENO only once (OD + DO = one route)
+  const routeKey = p.route_name + "|" + p.deno;
+
+  if (uniqueRoutes.has(routeKey))
+    return;
+
+  uniqueRoutes.add(routeKey);
+
+  let deno = p.deno;
+
+  if (deno === "Mini bus")
+    deno = "MB";
+
+  denoCounts[deno] = (denoCounts[deno] || 0) + 1;
+
+});
+
+const totalRoutes = Object.values(denoCounts).reduce((a,b)=>a+b,0);
+
+let tooltipHTML = `<b>${totalRoutes} Routes</b><br>`;
+
+Object.entries(denoCounts)
+  .sort((a,b) => b[1] - a[1])
+  .forEach(([deno,count]) => {
+    tooltipHTML += `${count} ${deno}<br>`;
+  });
+
+if(hoverTooltip) map.removeLayer(hoverTooltip);
+
+hoverTooltip = L.tooltip({
+  permanent: false,
+  direction: 'top',
+  className: 'hover-tooltip',
+  pane: 'highlightPane',
+  interactive: false
+})
+.setLatLng(latlng)
+.setContent(tooltipHTML)
+.addTo(map);
+});
+
+
+layer.on('click', function(e){
+  L.DomEvent.stopPropagation(e);
+  const latlng = e.latlng;
+
+  // DO NOT reset clickedLayers here! Only collect routes at click point
+const clickedRoutes = new Set();
+const clickedLayersTemp = [];
+const groupedRoutes = {
+  PUB: [],
+  UVE: [],
+  PUJ: [],
+  MB: [],
+  P2P: [],
+  OTHER: []
+};
+
+const groupedSeen = new Set();
+
+routesLayer.eachLayer(l => {
+
+if (!isRouteVisible(l))
+  return;
+
+  if(distanceToPolyline(latlng, l) <= 10){
+
+    const p = l.feature.properties;
+
+    clickedRoutes.add(p.route_name);
+    clickedLayersTemp.push(l);
+
+    let deno = p.deno;
+
+    if(deno === "Mini bus")
+      deno = "MB";
+
+    const key = deno + "|" + p.route_name;
+
+    if(!groupedSeen.has(key)){
+
+      groupedSeen.add(key);
+
+      if(!groupedRoutes[deno])
+        deno = "OTHER";
+
+      groupedRoutes[deno].push(p.route_name);
+
+    }
+
+  }
+
+});
+
+  clickedLayers = clickedLayersTemp; // store all clicked routes
+
+  routeSelectionActive = true;
+  endpointSelectionActive = false;
+  legendStatsSelectionMode = 'overlap';
+
+// REMOVE previous selected route highlight
+highlightLayer.clearLayers();
+selectedRouteLayers = [];
+
+// hide detail panel
+document.getElementById('route-detail-panel').style.display = 'none';
+
+// ADD overlap highlight for all clicked routes
+hoverHighlightLayer.clearLayers();
+clickedLayers.forEach(l => hoverHighlightLayer.addData(l.toGeoJSON()));
+
+  // remove old selected route highlight
+highlightLayer.clearLayers();
+
+selectedRouteLayers = [];
+
+// hide old route details
+document.getElementById('route-detail-panel').style.display = 'none';
+
+// keep overlap highlight visible
+hoverHighlightLayer.clearLayers();
+
+clickedLayers.forEach(l => {
+  hoverHighlightLayer.addData(l.toGeoJSON());
+});
+const popupListDiv = document.getElementById('route-popup-list');
+popupListDiv.style.display = 'block';
+let html = "<b>Routes at this point:</b><br>";
+
+["PUB","UVE","PUJ","MB","P2P","OTHER"].forEach(deno=>{
+
+  if(groupedRoutes[deno].length===0)
+    return;
+
+  html += `<div style="margin-top:6px;font-weight:bold;color:#1565c0;">${deno}</div>`;
+
+  groupedRoutes[deno]
+    .sort()
+    .forEach(route=>{
+
+      html += `<div class="route-item"
+                     data-route="${route}"
+                     style="cursor:pointer;padding-left:14px;padding-top:2px;padding-bottom:2px;">
+                 • ${route}
+               </div>`;
+
+    });
+
+});
+
+popupListDiv.innerHTML = html;
+
+
+if(hoverTooltip){
+  map.removeLayer(hoverTooltip);
+  hoverTooltip = null;
+}
+updateLegendStats();
+
+});
+
+layer.on('mouseout', function(){
+
+  // ONLY clear hover highlights if we are NOT in selection mode
+  if(!routeSelectionActive){
+    hoverHighlightLayer.clearLayers();
+  }
+
+  if(hoverTooltip){
+    map.removeLayer(hoverTooltip);
+    hoverTooltip = null;
+  }
+});
+
+        // Add arrows
+        const latlngs = layer.getLatLngs().flat();
+        let totalLength = 0;
+        for(let i=0;i<latlngs.length-1;i++) totalLength += latlngs[i].distanceTo(latlngs[i+1]);
+        if(!totalLength) return;
+        const repeat = (500 / totalLength) * 100;
+
+const decorator = L.polylineDecorator(layer, {
+  pane: 'arrowsPane',
+  patterns: [
+    // Black outline behind
+    {
+      offset: 0,
+      repeat: repeat + '%',
+      symbol: L.Symbol.arrowHead({
+        pixelSize: 12,      // slightly bigger
+        polygon: false,
+        pathOptions: {
+          color: "#000000", // black outline
+          weight: 5
+        }
+      })
+    },
+    // Colored arrow on top
+    {
+      offset: 0,
+      repeat: repeat + '%',
+      symbol: L.Symbol.arrowHead({
+        pixelSize: 10,
+        polygon: false,
+        pathOptions: {
+          color: getRouteColor(feature.properties.deno, feature.properties.direction),
+          weight: 2
+        }
+      })
+    }
+  ]
+});
+layer._decorator = decorator;
+
+      }
+    }).addTo(map);
+
+setTimeout(() => {
+
+  updateLegendStats();
+
+  map.fire('zoomend');
+
+}, 300);
+
+
+  })
+  .catch(err => { console.error(err); alert("Failed to load PUV route data"); });
+
+// DISPLAY CONTROLS
+["od","do","arrows","endpoints","stops","rail","airports","seaports","terminals"].forEach(id=>{
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("change", toggleLayers);
+});
+
+
+// LEGEND CONTROLS (ADD THIS)
+[
+  "PUJ_OD","PUJ_DO",
+  "UVE_OD","UVE_DO",
+  "MINI_OD","MINI_DO",
+  "PUB_OD","PUB_DO",
+  "P2P_OD","P2P_DO"
+].forEach(id=>{
+  const el = document.getElementById(id);
+
+  if (el) {
+    el.addEventListener("change", function(){
+      toggleLayers();
+      updateLegendStats();
+    });
+  }
+});
+
+// LTFRB OFFICE + ROUTE CLASS + ROUTERAT + GREEN ROUTE FILTERS
+document.addEventListener("change", function(e){
+
+  if(
+    e.target.classList &&
+    (
+      e.target.classList.contains("regionFilter") ||
+      e.target.classList.contains("routeClassFilter") ||
+      e.target.classList.contains("routeRatFilter") ||
+      e.target.classList.contains("greenRouteFilter")
+    )
+  ){
+    toggleLayers();
+  }
+
+});
+
+
+function updateLegendStats(){
+
+  const stats = { PUJ:{routes:0,fs:0,nau:0}, UVE:{routes:0,fs:0,nau:0}, MINI:{routes:0,fs:0,nau:0}, PUB:{routes:0,fs:0,nau:0}, P2P:{routes:0,fs:0,nau:0} };
+  const counted = new Set();
+  const discussionSelect = document.getElementById('discussionSelect');
+  const particularSelect = document.getElementById('particularSelect');
+  const selectedDiscussion = discussionSelect ? discussionSelect.value : '';
+  const selectedParticular = particularSelect ? particularSelect.value : '';
+
+  // When an overlap, endpoint, or individual route is selected, compute
+  // KPIs from that selection only. Otherwise retain normal filter-based stats.
+  if (legendStatsSelectionMode !== 'default') {
+    let selectedLayers = [];
+    if (legendStatsSelectionMode === 'route') selectedLayers = selectedRouteLayers;
+    else selectedLayers = clickedLayers;
+
+    selectedLayers.forEach(layer => {
+      if (!layer || !layer.feature || !layer.feature.properties) return;
+      const p = layer.feature.properties;
+      if (!isRouteInDiscussion(p.route_name, selectedDiscussion, selectedParticular)) return;
+      const denoKey = p.deno === 'Mini bus' ? 'MINI' : p.deno;
+      if (!stats[denoKey]) return;
+      const key = denoKey + '|' + p.route_name;
+      if (counted.has(key)) return; // OD and DO are the same underlying route row
+      counted.add(key);
+      stats[denoKey].routes++;
+      stats[denoKey].fs += Number(p.fleet_size || 0);
+      stats[denoKey].nau += Number(p.authorized_units || 0);
+    });
+  } else {
+    // OD and DO represent the SAME underlying Google Sheets row.
+    // KPI values remain unchanged while either direction is checked.
+    const denoActive = {};
+    Object.keys(stats).forEach(deno => {
+      const od = document.getElementById(deno + '_OD');
+      const doBox = document.getElementById(deno + '_DO');
+      denoActive[deno] = !!((od && od.checked) || (doBox && doBox.checked));
+    });
+
+    allRouteFeatures.forEach(feature => {
+      const p = feature.properties;
+      if (!isRouteInDiscussion(p.route_name, selectedDiscussion, selectedParticular)) return;
+      const denoKey = p.deno === 'Mini bus' ? 'MINI' : p.deno;
+      if (!denoActive[denoKey]) return;
+      const key = denoKey + '|' + p.route_name;
+      if (counted.has(key)) return;
+      counted.add(key);
+      if (stats[denoKey]) {
+        stats[denoKey].routes++;
+        stats[denoKey].fs += Number(p.fleet_size || 0);
+        stats[denoKey].nau += Number(p.authorized_units || 0);
+      }
+    });
+  }
+
+  Object.keys(stats).forEach(mode => {
+    document.getElementById(`stat_${mode}_routes`).textContent = stats[mode].routes.toLocaleString();
+    document.getElementById(`stat_${mode}_fs`).textContent = stats[mode].fs.toLocaleString();
+    document.getElementById(`stat_${mode}_nau`).textContent = stats[mode].nau.toLocaleString();
+  });
+  const totalRoutes = Object.values(stats).reduce((a,b)=>a+b.routes,0);
+  const totalFS = Object.values(stats).reduce((a,b)=>a+b.fs,0);
+  const totalNAU = Object.values(stats).reduce((a,b)=>a+b.nau,0);
+  document.getElementById('stat_TOTAL_routes').textContent = totalRoutes.toLocaleString();
+  document.getElementById('stat_TOTAL_fs').textContent = totalFS.toLocaleString();
+  document.getElementById('stat_TOTAL_nau').textContent = totalNAU.toLocaleString();
+}
+
+function getRouteWeight(deno, zoom){
+
+  let base;
+
+  if (zoom >= 14) base = 4;
+  else if (zoom >= 12) base = 3;
+  else if (zoom >= 9) base = 2;
+  else base = 1;
+
+  switch(deno){
+
+    case "PUJ":
+      return base + 1.0;
+
+    case "UVE":
+      return base + 0.8;
+
+    case "Mini bus":
+      return base + 0.6;
+
+    case "PUB":
+      return base + 0.4;
+
+    case "P2P":
+      return base + 0.2;
+
+    default:
+      return base;
+
+  }
+
+}
+
+
+// =====================================================
+// FOR DISCUSSION MAP FILTER
+// =====================================================
+
+function normalizeTopicText(value) {
+
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+
+}
+
+
+function isRouteInDiscussion(
+  routeName,
+  discussion,
+  selectedParticular
+) {
+
+// =====================================================
+// NO DISCUSSION SELECTED
+// =====================================================
+
+// If Discussion is ALL but a PARTICULAR is selected,
+// we still need to filter by PARTICULAR.
+
+if (!discussion) {
+
+  // No PARTICULAR selected = show everything
+  if (
+    !selectedParticular ||
+    selectedParticular === "ALL"
+  ) {
+    return true;
+  }
+
+  // PARTICULAR selected = check BY TOPIC
+  if (
+    !window.topicRows ||
+    !window.topicRows.length
+  ) {
+    return false;
+  }
+
+  const selectedParticularValue =
+    normalizeTopicText(
+      selectedParticular
+    );
+
+  const mapRoute =
+    normalizeTopicText(
+      routeName
+    );
+
+  return window.topicRows.some(row => {
+
+    const topicRoute =
+      normalizeTopicText(
+        row.route
+      );
+
+    const topicParticular =
+      normalizeTopicText(
+        row.particular
+      );
+
+    return (
+      topicRoute === mapRoute &&
+      topicParticular ===
+        selectedParticularValue
+    );
+
+  });
+
+}
+
+  // =====================================================
+  // TOPIC DATA NOT LOADED
+  // =====================================================
+
+  if (!window.topicRows || !window.topicRows.length) {
+    return false;
+  }
+
+
+  // =====================================================
+  // NORMALIZE VALUES
+  // =====================================================
+
+  const selectedDiscussion =
+    normalizeTopicText(discussion);
+
+  const selectedParticularValue =
+    normalizeTopicText(selectedParticular);
+
+  const mapRoute =
+    normalizeTopicText(routeName);
+
+
+  // =====================================================
+  // LOOK FOR A MATCHING BY TOPIC ROW
+  // =====================================================
+
+  return window.topicRows.some(row => {
+
+const topicDiscussion =
+  normalizeTopicText(
+    row.discussion
+  );
+
+const topicRoute =
+  normalizeTopicText(
+    row.route
+  );
+
+const topicParticular =
+  normalizeTopicText(
+    row.particular
+  );
+
+
+    // ---------------------------------------------------
+    // DISCUSSION MUST MATCH
+    // ---------------------------------------------------
+
+    if (
+      topicDiscussion !==
+      selectedDiscussion
+    ) {
+      return false;
+    }
+
+
+    // ---------------------------------------------------
+    // ROUTE MUST MATCH
+    // ---------------------------------------------------
+
+    if (
+      topicRoute !==
+      mapRoute
+    ) {
+      return false;
+    }
+
+
+    // ---------------------------------------------------
+    // NO PARTICULAR SELECTED
+    // SHOW ALL ROUTES FOR THIS DISCUSSION
+    // ---------------------------------------------------
+
+    if (!selectedParticularValue) {
+      return true;
+    }
+
+
+    // ---------------------------------------------------
+    // PARTICULAR MUST ALSO MATCH
+    // ---------------------------------------------------
+
+    return (
+      topicParticular ===
+      selectedParticularValue
+    );
+
+  });
+
+}
+
+
+
+function normalizeDenoKey(deno) {
+  const value = String(deno || "").trim();
+  if (value === "Mini bus" || value === "Mini Bus" || value === "MINI") return "MINI";
+  return value;
+}
+
+function normalizeRouteName(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toUpperCase();
+}
+
+function normalizeDirection(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function getRouteMeta(routeName, direction) {
+  const key = normalizeRouteName(routeName) + "__" + normalizeDirection(direction);
+  return routeMetaLookup[key] || null;
+}
+
+function isLegendDirectionVisible(deno, direction) {
+  const denoKey = normalizeDenoKey(deno);
+  const directionKey = normalizeDirection(direction);
+  const key = denoKey + "_" + directionKey;
+  const checkbox = document.getElementById(key);
+  return checkbox ? checkbox.checked : false;
+}
+
+// One visibility rule for every direction-dependent map object.
+// A route, arrow, endpoint, or stop is visible only when BOTH the
+// general OD/DO control and the DENO-specific OD/DO legend checkbox
+// allow it.
+function isDirectionVisible(direction, showOD, showDO) {
+  const dir = normalizeDirection(direction);
+  if (dir === "OD") return showOD;
+  if (dir === "DO") return showDO;
+  return false;
+}
+
+function toggleLayers() {
+
+  const showOD = document.getElementById("od").checked;
+  const showDO = document.getElementById("do").checked;
+  const showArrows = document.getElementById("arrows").checked;
+  const showEndpoints = document.getElementById("endpoints").checked;
+  const showStops = document.getElementById("stops").checked;
+  const showRailways = document.getElementById("rail").checked;
+
+  const zoom = map.getZoom();
+
+  const legend = {
+    PUJ_OD: document.getElementById("PUJ_OD").checked,
+    PUJ_DO: document.getElementById("PUJ_DO").checked,
+    UVE_OD: document.getElementById("UVE_OD").checked,
+    UVE_DO: document.getElementById("UVE_DO").checked,
+    MINI_OD: document.getElementById("MINI_OD").checked,
+    MINI_DO: document.getElementById("MINI_DO").checked,
+    PUB_OD: document.getElementById("PUB_OD").checked,
+    PUB_DO: document.getElementById("PUB_DO").checked,
+    P2P_OD: document.getElementById("P2P_OD").checked,
+    P2P_DO: document.getElementById("P2P_DO").checked
+  };
+
+  // =====================
+  // ROUTES
+  // =====================
+  if (routesLayer) {
+
+    routesLayer.eachLayer(layer => {
+
+      const p = layer.feature.properties;
+
+      const legendKey = `${normalizeDenoKey(p.deno)}_${normalizeDirection(p.direction)}`;
+
+      const dirVisible = isDirectionVisible(p.direction, showOD, showDO);
+
+      const legendVisible =
+        legend[legendKey] ?? false;
+
+const discussionSelect =
+  document.getElementById("discussionSelect");
+
+const particularSelect =
+  document.getElementById("particularSelect");
+
+const selectedDiscussion =
+  discussionSelect ? discussionSelect.value : "";
+
+const selectedParticular =
+  particularSelect
+    ? particularSelect.value
+    : "";
+
+const discussionVisible =
+  isRouteInDiscussion(
+    p.route_name,
+    selectedDiscussion,
+    selectedParticular
+  );
+
+
+if (
+  selectedDiscussion &&
+  window._discussionTestShown !== true
+) {
+
+  console.log(
+    "===== DISCUSSION FILTER TEST ====="
+  );
+
+  console.log(
+    "Selected Discussion:",
+    selectedDiscussion
+  );
+
+  console.log(
+    "Selected Particular:",
+    selectedParticular
+  );
+
+  console.log(
+    "First Map Route:",
+    p.route_name
+  );
+
+  console.log(
+    "First Route Match Result:",
+    discussionVisible
+  );
+
+  console.log(
+    "BY TOPIC rows:",
+    window.topicRows
+  );
+
+  window._discussionTestShown = true;
+
+}
+
+
+const visible =
+  dirVisible &&
+  legendVisible &&
+  discussionVisible;
+
+layer._visible = visible;
+
+layer.setStyle({
+  opacity: visible ? 1 : 0,
+  interactive: visible
+});
+
+if (layer._path) {
+    layer._path.style.pointerEvents = visible ? "auto" : "none";
+}
+
+layer.options.interactive = visible;
+
+      if (layer._decorator) {
+
+        if (visible && showArrows && zoom >= 14) {
+          map.addLayer(layer._decorator);
+        } else {
+          map.removeLayer(layer._decorator);
+        }
+
+      }
+
+    });
+
+  }
+
+  // =====================
+  // STOPS
+  // =====================
+  stopsLayer.eachLayer(l => {
+
+    const directionVisible =
+      isDirectionVisible(l._direction, showOD, showDO);
+
+    const legendVisible =
+      isLegendDirectionVisible(l._deno, l._direction);
+
+    const visible =
+      directionVisible &&
+      legendVisible &&
+      showStops &&
+      zoom >= 12;
+
+    if (visible) {
+      map.addLayer(l);
+    } else {
+      map.removeLayer(l);
+    }
+
+  });
+
+  // =====================
+  // ENDPOINTS
+  // =====================
+  endpointsLayer.eachLayer(l => {
+
+    const directionVisible =
+      isDirectionVisible(l._direction, showOD, showDO);
+
+    const legendVisible =
+      isLegendDirectionVisible(l._deno, l._direction);
+
+    const visible =
+      directionVisible &&
+      legendVisible &&
+      showEndpoints &&
+      zoom >= 10;
+
+if (visible) {
+    const size = getEndpointSize(zoom);
+    l.setIcon(L.divIcon({
+      className: 'diamond-endpoint',
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      html: `<div style="width:${size}px;height:${size}px;background:${l._color || '#FF00FF'};transform:rotate(45deg);border:2px solid #000;box-sizing:border-box;"></div>`
+    }));
+    map.addLayer(l);
+
+} else {
+
+    map.removeLayer(l);
+
+}
+
+  });
+
+  // =====================
+  // RAILWAYS
+  // =====================
+  if (showRailways) {
+
+    map.addLayer(railGroup);
+
+if (zoom >= 12)
+  map.addLayer(trainStations);
+
+  } else {
+
+    map.removeLayer(railGroup);
+    map.removeLayer(trainStations);
+
+  }
+
+  // =====================
+  // AIRPORTS
+  // =====================
+  if (document.getElementById("airports").checked && zoom >= 12) {
+    map.addLayer(airportsLayer);
+  } else {
+    map.removeLayer(airportsLayer);
+  }
+
+  // =====================
+  // SEAPORTS
+  // =====================
+  if (document.getElementById("seaports").checked && zoom >= 12) {
+    map.addLayer(seaportsLayer);
+  } else {
+    map.removeLayer(seaportsLayer);
+  }
+
+  // TERMINALS: appear at the same zoom threshold as Endpoints.
+  if (document.getElementById("terminals").checked && zoom >= 10) {
+    map.addLayer(terminalsLayer);
+  } else {
+    map.removeLayer(terminalsLayer);
+  }
+}
+
+  // ==== TRAIN LINES + STATIONS ====
+function getTrainIcon(zoom) {
+  // Use the same circular marker, dimensions, scaling, and anchor as
+  // airports and seaports; only the symbol differs.
+  return getFacilityMarkerIcon("station", zoom);
+}
+
+  fetch('https://script.google.com/macros/s/AKfycbzbRM5VKsC0U4XsEjaFqsUHxtwhSZrYAX9Zky8ZZE7enUjwLnY-y5IF_tjQHj9sJ5wP3g/exec')
+  .then(res => res.json())
+  .then(data => {
+
+    data.features.forEach(feature => {
+if (feature.properties.type === "LINE") {
+
+  let lines = [];
+
+  // normalize geometry (IMPORTANT)
+  if (feature.geometry.type === "LineString") {
+    lines = [feature.geometry.coordinates];
+  }
+
+  if (feature.geometry.type === "MultiLineString") {
+    lines = feature.geometry.coordinates;
+  }
+
+  lines.forEach(line => {
+
+    const coords = line.map(c => [c[1], c[0]]);
+
+    // ===== MAIN RAIL (THINNER = BETTER TRACK LOOK) =====
+const railMain = L.polyline(coords, {
+  pane: 'railPane',
+  color: "#2b2b2b",
+  weight: getRailWeight(map.getZoom()),
+  opacity: 1,
+  lineCap: "round"
+}).addTo(railGroup);
+
+
+trainTracks.push({
+  rail: railMain,
+  sleeper: null
+});
+
+    railMain.bindPopup(feature.properties.line || '');
+  });
+}
+
+if(feature.properties.type==="STATION") {
+
+  const coords = feature.geometry.coordinates;
+
+  const marker = L.marker(
+    [coords[1], coords[0]],
+    {
+      icon: getTrainIcon(map.getZoom())
+    }
+  );
+
+  marker.bindPopup(
+    feature.properties.station + " Sta."
+  );
+
+  trainStations.addLayer(marker);
+
+}
+
+    });
+    map.addLayer(trainStations);
+    map.addLayer(trainLayer);
+
+    railwayReady = true;
+    map.fire('zoomend');
+
+  })
+  .catch(err=>console.error("TRAIN DATA ERROR:",err));
+
+
+// ==== AIRPORTS AND SEAPORTS ====
+
+function getFacilityMarkerIcon(kind, zoom) {
+  const size = getFacilitySize(zoom);
+  const markerSize = Math.max(2, Math.round(size * 1.5));
+  const iconSize = Math.max(1.2, Math.round(markerSize * 0.68));
+  const outerSize = markerSize + 4;
+
+  const styles = {
+    station: {
+      color: "#EF6C00",
+      svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}" aria-hidden="true">
+        <path fill="#fff" d="M7 2h10a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3l2 2h-2l-3-2h-4l-3 2H5l2-2a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3Zm0 3v6h10V5H7Zm1 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm8 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/>
+      </svg>`
+    },
+    airport: {
+      color: "#1976D2",
+      svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}" aria-hidden="true">
+        <path fill="#fff" d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5L21 16Z"/>
+      </svg>`
+    },
+    seaport: {
+      color: "#00897B",
+      svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}" aria-hidden="true">
+        <path d="M12 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM12 7v13M5 13a7 7 0 0 0 14 0M3 13h4M17 13h4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`
+    },
+    terminal: {
+      color: "#7B1FA2",
+      // Bus-front pictogram: clearer transit-terminal symbol than a house/building.
+      svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}" aria-hidden="true">
+        <path fill="#fff" d="M12 2C7 2 4 2.7 4 6v11.5A2.5 2.5 0 0 0 6.5 20H7v1.2a.8.8 0 0 0 1.6 0V20h6.8v1.2a.8.8 0 0 0 1.6 0V20h.5a2.5 2.5 0 0 0 2.5-2.5V6c0-3.3-3-4-8-4ZM6 6.5C6 5.4 8 5 12 5s6 .4 6 1.5V13H6V6.5ZM7.5 17.5A1.5 1.5 0 1 1 7.5 14.5a1.5 1.5 0 0 1 0 3Zm9 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/>
+      </svg>`
+    }
+  };
+
+  const style = styles[kind] || {
+    color: "#555",
+    svg: `<span style="color:white;font-size:${iconSize}px;line-height:1;">•</span>`
+  };
+
+  return L.divIcon({
+    className: "facility-marker",
+    html: `<div style="background:${style.color};border:2px solid #333;border-radius:50%;width:${markerSize}px;height:${markerSize}px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px #555;">${style.svg}</div>`,
+    iconSize: [outerSize, outerSize],
+    iconAnchor: [outerSize / 2, outerSize / 2]
+  });
+}
+
+const airportIcon = getFacilityMarkerIcon("airport", map.getZoom());
+const seaportIcon = getFacilityMarkerIcon("seaport", map.getZoom());
+
+fetch("https://script.google.com/macros/s/AKfycbwaj41qEO6DFV_fXSDWm1CP3hG0RZags9m3qV1QaKKf7EeM_Eb3tY-IDmrHqwJx0H5B9w/exec")
+  .then(res => {
+    if (!res.ok) throw new Error("Could not load Airports and Seaports data");
+    return res.json();
+  })
+  .then(data => {
+    data.features.forEach(feature => {
+      const p = feature.properties || {};
+      const coords = feature.geometry.coordinates;
+
+      if (!coords || coords.length < 2) return;
+
+      const longitude = Number(coords[0]);
+      const latitude = Number(coords[1]);
+
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+      const isAirport = String(p.category || "").toLowerCase() === "airports";
+      const icon = isAirport ? airportIcon : seaportIcon;
+      const targetLayer = isAirport ? airportsLayer : seaportsLayer;
+
+      const marker = L.marker([latitude, longitude], {
+        icon: icon
+      });
+
+      const popupContent = document.createElement("div");
+      const name = document.createElement("b");
+      name.textContent = p.name || (isAirport ? "Airport" : "Seaport");
+      popupContent.appendChild(name);
+
+      if (p.address) {
+        const address = document.createElement("div");
+        address.textContent = p.address;
+        popupContent.appendChild(address);
+      }
+
+      if (p.province) {
+        const province = document.createElement("div");
+        province.textContent = "Province: " + p.province;
+        popupContent.appendChild(province);
+      }
+
+      if (p.region) {
+        const region = document.createElement("div");
+        region.textContent = "Region: " + p.region;
+        popupContent.appendChild(region);
+      }
+
+      marker.bindPopup(popupContent);
+      targetLayer.addLayer(marker);
+    });
+
+    toggleLayers();
+    console.log("Airports loaded:", airportsLayer.getLayers().length);
+    console.log("Seaports loaded:", seaportsLayer.getLayers().length);
+  })
+  .catch(err => console.error("AIRPORTS/SEAPORTS ERROR:", err));
+
+// ==== TERMINALS API ====
+// Only records returned by the API (ENDPOINT = Terminal and valid coordinates) are mapped.
+const terminalApiUrl = "https://script.google.com/macros/s/AKfycbzDcjBJfk3G40WI8-tX5wGDdu18GDHhUyAW_BAHkBKV84vsXseUF0kbvQ794SoJ_NAx/exec";
+fetch(terminalApiUrl)
+  .then(res => {
+    if (!res.ok) throw new Error("Could not load Terminals data");
+    return res.json();
+  })
+  .then(data => {
+    (data.features || []).forEach(feature => {
+      if (!feature || !feature.geometry || feature.geometry.type !== "Point") return;
+      const coords = feature.geometry.coordinates;
+      if (!Array.isArray(coords) || coords.length < 2) return;
+      const longitude = Number(coords[0]);
+      const latitude = Number(coords[1]);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+          latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return;
+
+      const props = feature.properties || {};
+      const endpointType = String(props.ENDPOINT || props.endpoint || "").trim().toUpperCase();
+      if (endpointType !== "TERMINAL") return;
+
+      const marker = L.marker([latitude, longitude], {
+        // Use the exact same circular facility-marker factory as stations,
+        // airports and seaports, but keep terminals above overlapping endpoints.
+        icon: getFacilityMarkerIcon("terminal", map.getZoom()),
+        pane: "terminalFacilityPane",
+        riseOnHover: true
+      });
+
+      // Hover tooltip intentionally displays only NAME and ADDRESS.
+      const tooltip = document.createElement("div");
+      tooltip.style.display = "block";
+      tooltip.style.textAlign = "left";
+
+      const terminalName = document.createElement("div");
+      terminalName.style.display = "block";
+      terminalName.style.fontWeight = "700";
+      terminalName.textContent = props.NAME || props.name || "Terminal";
+      tooltip.appendChild(terminalName);
+
+      const terminalAddress = document.createElement("div");
+      terminalAddress.style.display = "block";
+      terminalAddress.style.marginTop = "3px";
+      terminalAddress.textContent = props.ADDRESS || props.address || "";
+      if (terminalAddress.textContent) tooltip.appendChild(terminalAddress);
+
+      marker.bindTooltip(tooltip, { direction: "top", offset: [0, -6], opacity: 0.95 });
+
+      terminalsLayer.addLayer(marker);
+    });
+    toggleLayers();
+    console.log("Terminals loaded:", terminalsLayer.getLayers().length);
+  })
+  .catch(err => console.error("TERMINALS API ERROR:", err));
+
+
+const forceSleeperVisibility = () => {
+};
+
+
+map.on('zoomend', () => {
+  const zoom = map.getZoom();
+  const size = getSleeperSize(zoom);
+
+  // ===== ROUTE WEIGHT =====
+  let routeWeight = 1;
+  if (zoom >= 14) routeWeight = 4;
+  else if (zoom >= 12) routeWeight = 3;
+  else if (zoom >= 9) routeWeight = 2;
+
+  // ===== TRAIN RAIL WEIGHT =====
+  const trainWeight =
+    zoom >= 14 ? 8 :
+    zoom >= 12 ? 6 :
+    zoom >= 9 ? 4 : 2;
+
+  // ===== UPDATE TRAIN LINES =====
+  trainTracks.forEach(obj => {
+
+    // update main rail thickness (clean single source of truth)
+    if (obj.rail) {
+      obj.rail.setStyle({
+        weight: getRailWeight(zoom)
+      });
+    }
+
+    // remove old sleeper
+    if (obj.sleeper) {
+      railGroup.removeLayer(obj.sleeper);
+      obj.sleeper = null;
+    }
+
+    // hide sleepers if too zoomed out
+if (zoom < 12) {
+  if (obj.sleeper) {
+    map.removeLayer(obj.sleeper);
+    obj.sleeper = null;
+  }
+  return;
+}
+
+
+let repeatValue =
+  zoom >= 14 ? 18 :
+  zoom >= 12 ? 25 :
+  zoom >= 10 ? 35 :
+  50;
+
+if (obj.sleeper) {
+  map.removeLayer(obj.sleeper);
+}
+
+obj.sleeper = L.polylineDecorator(obj.rail, {
+  patterns: [{
+    offset: 0,
+    repeat: repeatValue,
+
+    symbol: L.Symbol.marker({
+      rotate: true,
+      markerOptions: {
+        pane: 'sleeperPane',   // 🔥 IMPORTANT ADDITION
+        icon: L.divIcon({
+          className: '',
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+          html: `<div style="
+            width:${zoom >= 14 ? 18 : zoom >= 12 ? 14 : 10}px;
+            height:3px;
+            background:#111;
+            transform: translate(-50%, -50%);
+          "></div>`
+        })
+      }
+    })
+  }]
+});
+
+
+obj.sleeper.addTo(railGroup);
+obj.sleeper.setZIndexOffset?.(1000);
+
+  });
+
+
+  // ===== ROUTES STYLE UPDATE =====
+  if (routesLayer) {
+    routesLayer.eachLayer(layer => {
+      if (!layer._isSelected) {
+layer.setStyle({
+    weight: getRouteWeight(
+        layer.feature.properties.deno,
+        zoom
+    )
+});
+
+layer.feature.properties.routeWeight =
+    getRouteWeight(
+        layer.feature.properties.deno,
+        zoom
+    );
+
+
+      }
+    });
+  }
+
+// ===== STATIONS =====
+if (zoom >= 12) {
+  map.addLayer(trainStations);
+} else {
+  map.removeLayer(trainStations);
+}
+
+// ===== UPDATE STATION ICON SIZE =====
+trainStations.eachLayer(station => {
+  station.setIcon(getTrainIcon(zoom));
+});
+
+// ===== UPDATE AIRPORT / SEAPORT ICON SIZES =====
+airportsLayer.eachLayer(marker => {
+  marker.setIcon(getFacilityMarkerIcon("airport", zoom));
+});
+seaportsLayer.eachLayer(marker => {
+  marker.setIcon(getFacilityMarkerIcon("seaport", zoom));
+});
+terminalsLayer.eachLayer(marker => {
+  marker.setIcon(getFacilityMarkerIcon("terminal", zoom));
+});
+
+// ===== UPDATE STOP SIZES =====
+stopsLayer.eachLayer(stop => {
+  stop.setRadius(getStopSize(zoom));
+});
+
+  toggleLayers();
+});
+
+  // ==== PUV STOPS + ENDPOINTS ====
+  fetch('https://script.google.com/macros/s/AKfycbxGJCS3dyRBeGRZNm97PPDYu0XbET_Zeq-VfY3DEAGjrD7h0zHLBUqxJyfHG8OMCQ0/exec')
+  .then(res=>res.json())
+  .then(data=>{
+    data.features.forEach(feature=>{
+      if (!feature || !feature.geometry || !Array.isArray(feature.geometry.coordinates)) return;
+      const coords = feature.geometry.coordinates;
+      if (coords.length < 2 || !Number.isFinite(Number(coords[0])) || !Number.isFinite(Number(coords[1]))) return;
+      const latlng = [Number(coords[1]), Number(coords[0])];
+      const dir = feature.properties.direction || feature.properties.DIRECTION;
+      const type = String(feature.properties.type || feature.properties.TYPE || "").trim().toUpperCase();
+const routeName = feature.properties.route_name || feature.properties.ROUTE_NAME;
+
+const routeMeta = getRouteMeta(routeName, dir);
+const color = routeMeta ? routeMeta.color : "#FF00FF";
+const facilityDeno = routeMeta ? routeMeta.deno : (feature.properties.deno || feature.properties.DENO || "");
+const facilityDirection = routeMeta ? routeMeta.direction : normalizeDirection(dir);
+
+if (!routeMeta) {
+  console.warn("NO EXACT ROUTE MATCH FOR FACILITY:", { routeName, dir, deno: feature.properties.deno, type });
+}
+
+if(type==="STOP" || type==="STOPS") {
+
+  const stopPaneName = facilityDirection === "OD" ? 'stopsODPane' : 'stopsDOPane';
+  const marker = L.circleMarker(latlng, {
+    pane: stopPaneName,
+    radius:4.5,
+    color:"#000000",
+    fillColor:color,
+    fillOpacity:1,
+    weight:2
+  });
+
+console.log("STOP:", feature.properties);
+
+marker._direction = facilityDirection;
+marker._deno = facilityDeno;
+marker._legendKey = normalizeDenoKey(facilityDeno) + "_" + normalizeDirection(facilityDirection);
+marker._routeName = routeName;
+marker._region = feature.properties.region;
+marker._routeStudy =
+  (feature.properties.route_study || "").trim() ||
+  "Unclassified*";
+
+marker._status =
+  (feature.properties.status || "").trim();
+
+marker._electric =
+  (feature.properties.electric || "").trim();
+
+
+marker.bindPopup(
+  feature.properties.stop ||
+  feature.properties.STOP ||
+  "Stop"
+);
+marker._facilityLabel = String(feature.properties.stop || feature.properties.STOP || feature.properties.stop_name || feature.properties.STOP_NAME || "Stop");
+marker.on('click', function(e) {
+  L.DomEvent.stopPropagation(e);
+  showFacilityRouteLists(marker, 'STOP');
+});
+
+stopsLayer.addLayer(marker);
+
+}
+
+function escapeEndpointHtml(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[ch]));
+}
+
+
+function showFacilityRouteLists(clickedMarker, clickedKind) {
+  endpointSelectionActive = true;
+  routeSelectionActive = true;
+  legendStatsSelectionMode = 'endpoint';
+  selectedEndpointName = clickedMarker._endpointName || clickedMarker._facilityLabel || (clickedKind === 'STOP' ? 'Stop' : 'Endpoint');
+  clickedLayers = [];
+  selectedRouteLayers = [];
+  highlightLayer.clearLayers();
+  hoverHighlightLayer.clearLayers();
+  document.getElementById('route-detail-panel').style.display = 'none';
+
+  const anchor = clickedMarker.getLatLng();
+  const nearbyMeters = 35;
+  const endNames = new Map();
+  const stopNames = new Map();
+  // Keep the actual visible route layers represented in the two lists so
+  // updateLegendStats() can calculate KPIs instead of seeing an empty selection.
+  const selectedRouteLayersForStats = new Map();
+  const collect = (layer, target) => {
+    layer.eachLayer(f => {
+      if (!f.getLatLng || map.distance(anchor, f.getLatLng()) > nearbyMeters) return;
+      const name = String(f._routeName || '').trim();
+      if (!name) return;
+      const direction = normalizeDirection(f._direction);
+      if (!isLegendDirectionVisible(f._deno, direction)) return;
+      const key = normalizeRouteName(name) + '__' + direction;
+      target.set(key, { name, direction, deno: f._deno || '', key });
+    });
+  };
+  collect(endpointsLayer, endNames);
+  collect(stopsLayer, stopNames);
+  // Always retain the clicked facility's route even if its DENO metadata is absent.
+  const ownName = String(clickedMarker._routeName || '').trim();
+  if (ownName) {
+    const own = { name: ownName, direction: normalizeDirection(clickedMarker._direction), deno: clickedMarker._deno || '' };
+    (clickedKind === 'STOP' ? stopNames : endNames).set(normalizeRouteName(ownName) + '__' + own.direction, own);
+  }
+
+  // Derive missing DENO values from route features, using normalized route names and direction.
+  const routeMetaByKey = new Map();
+  routesLayer.eachLayer(route => {
+    const p = route.feature && route.feature.properties || {};
+    const name = String(p.route_name || p.ROUTE_NAME || '').trim();
+    const direction = normalizeDirection(p.direction || p.DIRECTION);
+    if (!name) return;
+    routeMetaByKey.set(normalizeRouteName(name) + '__' + direction, {
+      deno: p.deno || p.DENO || 'OTHER', name, direction, layer: route
+    });
+  });
+  const denoLabel = value => {
+    const v = String(value || 'OTHER').trim();
+    if (v === 'Mini bus' || v === 'Mini Bus' || v.toUpperCase() === 'MINI') return 'MB';
+    return ['PUB','UVE','PUJ','P2P','MB'].includes(v) ? v : 'OTHER';
+  };
+  const buildGroups = source => {
+    const groups = { PUB: [], UVE: [], PUJ: [], MB: [], P2P: [], OTHER: [] };
+    const seen = new Set();
+    source.forEach(item => {
+      const meta = routeMetaByKey.get(normalizeRouteName(item.name) + '__' + item.direction);
+      const deno = denoLabel(item.deno || (meta && meta.deno));
+      const routeLayer = meta && meta.layer;
+      if (routeLayer && !isRouteVisible(routeLayer)) return;
+      // When direction metadata varies between sources, use any visible layer
+      // for the same normalized route name, but retain it for the KPI calculation.
+      if (routeLayer) {
+        selectedRouteLayersForStats.set(routeLayer, routeLayer);
+      } else {
+        let foundVisible = false;
+        routesLayer.eachLayer(r => {
+          const p = r.feature && r.feature.properties || {};
+          if (normalizeRouteName(p.route_name || p.ROUTE_NAME) === normalizeRouteName(item.name) && isRouteVisible(r)) {
+            foundVisible = true;
+            selectedRouteLayersForStats.set(r, r);
+          }
+        });
+        if (!foundVisible) return;
+      }
+      const key = deno + '|' + normalizeRouteName(item.name);
+      if (!seen.has(key)) { seen.add(key); groups[deno].push(item.name); }
+    });
+    Object.values(groups).forEach(a => a.sort((x,y) => x.localeCompare(y)));
+    return groups;
+  };
+  const endingGroups = buildGroups(endNames);
+  const stoppingGroups = buildGroups(stopNames);
+  // The stats code uses clickedLayers when selection mode is 'endpoint'.
+  // Populate it with the visible route layers listed in either section.
+  clickedLayers = Array.from(selectedRouteLayersForStats.values());
+  const panel = document.getElementById('route-popup-list');
+  const renderSection = (title, groups) => {
+    let out = `<div style="font-weight:bold;margin:8px 0 5px;border-bottom:1px solid #bbb;padding-bottom:4px;">${title}</div>`;
+    let count = 0;
+    ['PUB','UVE','PUJ','MB','P2P','OTHER'].forEach(deno => {
+      if (!groups[deno].length) return;
+      out += `<div style="margin-top:5px;font-weight:bold;color:#1565c0;">${deno}</div>`;
+      groups[deno].forEach(name => {
+        count++;
+        out += `<div class="route-item" data-route="${escapeEndpointHtml(name)}" style="cursor:pointer;padding:3px 0 3px 12px;line-height:1.25;">• ${escapeEndpointHtml(name)}</div>`;
+      });
+    });
+    if (!count) out += '<div style="color:#666;padding:3px 0;">No currently visible routes found.</div>';
+    return out;
+  };
+  panel.innerHTML = `<div style="font-weight:bold;font-size:15px;">${escapeEndpointHtml(selectedEndpointName)}</div>` +
+    renderSection('ROUTES ENDING AT THIS LOCATION', endingGroups) +
+    renderSection('ROUTES STOPPING AT THIS LOCATION', stoppingGroups);
+  panel.style.display = 'block';
+  if (hoverTooltip) { map.removeLayer(hoverTooltip); hoverTooltip = null; }
+  updateLegendStats();
+}
+
+if(type==="ENDPOINT" || type==="ENDPOINTS") {
+  const paneName = facilityDirection === "OD" ? "endpointsODPane" : "endpointsDOPane";
+
+const zoom = map.getZoom();
+
+const endpointSize = getEndpointSize(zoom);
+
+const marker = L.marker(latlng, {
+  pane: paneName,
+  icon: L.divIcon({
+    className: 'diamond-endpoint',
+    iconSize: [endpointSize, endpointSize],
+    iconAnchor: [endpointSize / 2, endpointSize / 2],
+    html: `<div style="
+      width:${endpointSize}px;
+      height:${endpointSize}px;
+      background:${color};
+      transform: rotate(45deg);
+      border: 2px solid #000;
+    "></div>`
+
+    })
+  });
+
+marker._color = color;
+
+marker._direction = facilityDirection;
+marker._deno = facilityDeno;
+marker._legendKey = normalizeDenoKey(facilityDeno) + "_" + normalizeDirection(facilityDirection);
+marker._routeName = routeName;
+marker._region = feature.properties.region;
+marker._routeStudy =
+  (feature.properties.route_study || "").trim() ||
+  "Unclassified*";
+
+marker._status =
+  (feature.properties.status || "").trim();
+
+marker._electric =
+  (feature.properties.electric || "").trim();
+
+const endpointLabel = String(
+  feature.properties.endpoint ||
+  feature.properties.ENDPOINT ||
+  feature.properties.endpoint_name ||
+  feature.properties.ENDPOINT_NAME ||
+  "Endpoint"
+);
+marker._endpointName = endpointLabel;
+marker.bindPopup(endpointLabel);
+
+// Clicking either a stop or endpoint opens both route lists for the same physical location.
+marker.on('click', function(e) {
+  L.DomEvent.stopPropagation(e);
+  showFacilityRouteLists(marker, 'ENDPOINT');
+});
+
+endpointsLayer.addLayer(marker);
+
+}
+
+    });
+
+    // Apply the current OD/DO legend and Display Control state
+    // after all stop/endpoint markers have been created.
+    toggleLayers();
+  })
+  .catch(err=>console.error("STOPS/ENDPOINTS ERROR:",err));
+document.getElementById('route-popup-list').addEventListener('click', function(e){
+
+  const item = e.target.closest('.route-item');
+
+  if(!item) return;
+
+const routeName = item.dataset.route;
+legendStatsSelectionMode = 'route';
+
+// REMOVE overlap highlight
+hoverHighlightLayer.clearLayers();
+
+// remove previous selected route highlight
+
+selectedRouteLayers.forEach(l => {
+
+  l.setStyle({
+    color: l.feature.properties.routeColor,
+    weight: l.feature.properties.routeWeight
+  });
+
+});
+
+selectedRouteLayers = [];
+
+// remove previous selected highlight
+highlightLayer.clearLayers();
+
+// clickedLayers.forEach(l => {
+//     l.setStyle({ 
+//       color: l.feature.properties.routeColor, 
+//       weight: l.feature.properties.routeWeight,
+//       pane: l.feature.properties.direction === "OD" ? 'odPane' : 'doPane'
+//     });
+// });
+// clickedLayers = [];
+
+
+  routesLayer.eachLayer(l => {
+
+    if(l.feature.properties.route_name === routeName){
+
+selectedRouteLayers.push(l);
+
+// add selected route geometry to highlight layer
+highlightLayer.addData(l.toGeoJSON());
+
+      const p = l.feature.properties;
+
+const html = `
+  <div style="font-size:15px;font-weight:bold;margin-bottom:8px;">
+    ${p.route_name}
+  </div>
+
+  <b>DENO:</b> ${p.deno || ''}<br>
+  <b>CLASS:</b> ${p.class || ''}<br>
+  <b>ROUTE TYPE:</b> ${p.route_study || ''}<br>
+  <b>ROUTE CLASS:</b> ${p.route_class || ''}<br>
+  <b>FLEET SIZE:</b> ${p.fleet_size || ''}<br>
+  <b>AUTHORIZED UNITS:</b> ${p.authorized_units || ''}<br>
+  <b>LENGTH:</b> ${p.route_length || ''} km<br>
+  <b>BR. NO.:</b> ${p.board_reso || ''}<br>
+  <b>MC. NO.:</b> ${p.mc_no || ''}
+`;
+
+document.getElementById('route-detail-panel').style.display = 'block';
+document.getElementById('detail-content').innerHTML = html;
+
+    }
+
+  });
+
+  // Refresh the legend/KPI statistics after selecting a route from the
+  // lower-right list. The selected route layer(s) are now populated.
+  updateLegendStats();
+
+});
+
+function buildRegionTable(){
+
+const regions = [
+  "CO",
+  "NCR",
+  "CAR",
+  "R1",
+  "R2",
+  "R3",
+  "R4A",
+  "R4B",
+  "R5",
+  "R6",
+  "R7",
+  "R8",
+  "R9",
+  "R10",
+  "R11",
+  "R12",
+  "CARAGA"
+];
+
+const table =
+document.getElementById("regionTable");
+
+regions.forEach(region=>{
+
+  const s =
+    regionStats[region] ||
+    {routes:0,units:0};
+
+  table.insertAdjacentHTML(
+    "beforeend",
+`
+<tr>
+
+<td>
+<input
+type="checkbox"
+class="regionFilter"
+data-region="${region}"
+checked>
+</td>
+
+<td>${region}</td>
+
+<td
+align="right"
+id="office_routes_${region}">
+${s.routes}
+</td>
+
+<td
+align="right"
+id="office_units_${region}">
+${s.units}
+</td>
+
+
+</tr>
+`
+);
+
+});
+
+const totalRoutes =
+Object.values(regionStats)
+.reduce((a,b)=>a+b.routes,0);
+
+const totalUnits =
+Object.values(regionStats)
+.reduce((a,b)=>a+b.units,0);
+
+document.getElementById(
+"regionTotalRoutes"
+).textContent = totalRoutes;
+
+document.getElementById(
+"regionTotalFleet"
+).textContent = totalUnits;
+
+const totalRow =
+document.getElementById(
+"regionTotalRow"
+);
+
+table.appendChild(totalRow);
+
+}
+
+function buildRouteClassTable(){
+
+const table =
+document.getElementById("routeClassTable");
+
+// remove old dynamic rows
+table
+.querySelectorAll("tr.dynamicClassRow")
+.forEach(r => r.remove());
+
+// total row
+const totalRow =
+document.getElementById("classTotalRoutes")
+.parentElement.parentElement;
+
+// build one row for every classification
+[
+  "MUCEP",
+  "LPTRP",
+  "IRIP",
+  ...(routeClassStats["Unclassified*"]
+      ? ["Unclassified*"]
+      : [])
+]
+.forEach(className=>{
+
+
+  const safeClass =
+    className.replace(/[^a-zA-Z0-9]/g,"_");
+if(!routeClassStats[className]){
+  routeClassStats[className] = {
+    routes:0,
+    units:0
+  };
+}
+
+
+  const row =
+    document.createElement("tr");
+
+  row.className = "dynamicClassRow";
+
+  if(className==="Unclassified*"){
+    row.style.color="red";
+    row.style.fontWeight="bold";
+  }
+
+  row.innerHTML = `
+<td>
+<input
+type="checkbox"
+class="routeClassFilter"
+data-class="${className}"
+checked>
+</td>
+
+<td>${className}</td>
+
+<td
+id="${safeClass}_routes"
+align="right">
+0
+</td>
+
+<td
+id="${safeClass}_units"
+align="right">
+0
+</td>
+`;
+
+  table.insertBefore(
+    row,
+    totalRow
+  );
+
+});
+
+}
+
+
+// =====================================================
+// OPEN / CLOSE REGION PANEL
+// =====================================================
+
+const regionBtn =
+  document.getElementById("openRegionPanel");
+
+const regionPanel =
+  document.getElementById("regionPanel");
+
+if (regionBtn && regionPanel) {
+
+  regionBtn.addEventListener("click", function () {
+
+    regionPanel.style.display =
+      regionPanel.style.display === "block"
+        ? "none"
+        : "block";
+
+  });
+
+}
+
+
+// =====================================================
+// OPEN / CLOSE FOR DISCUSSION PANEL
+// =====================================================
+
+const discussionBtn =
+  document.getElementById("openDiscussionPanel");
+
+const discussionPanel =
+  document.getElementById("discussionPanel");
+
+if (discussionBtn && discussionPanel) {
+
+  discussionBtn.addEventListener("click", function () {
+
+    const isHidden =
+      window.getComputedStyle(
+        discussionPanel
+      ).display === "none";
+
+    discussionPanel.style.display =
+      isHidden ? "block" : "none";
+
+  });
+
+}
+
+
+</script>
+</body>
+</html>
